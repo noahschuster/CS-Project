@@ -21,4 +21,4 @@ params = urllib.parse.quote_plus(conn)
 conn_str = 'mssql+pyodbc:///?autocommit=true&odbc_connect={}'.format(params)
 DB = create_engine(conn_str, echo=False)
 
-print(pd.read_sql('SELECT name FROM sys.tables', DB))
+print(pd.read_sql('SELECT * FROM TestTable', DB))

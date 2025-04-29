@@ -3,3 +3,5 @@ pandas
 pyodbc
 sqlalchemy
 requests
+python-dotenv
+pandas

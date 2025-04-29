@@ -39,7 +39,7 @@ def main():
         from study_sessions import display_study_sessions
         display_study_sessions(user_id)
     elif page == "Learning Tips":
-        from learning_tips import display_learning_tips
+        from learning_tipps import display_learning_tips
         display_learning_tips(user_id)
 
 def display_dashboard(user_id, username):

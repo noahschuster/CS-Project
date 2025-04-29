@@ -1,7 +1,9 @@
 streamlit
+streamlit-cookies-manager
 pandas
 pyodbc
 sqlalchemy
 requests
 python-dotenv
 pandas
+bcrypt

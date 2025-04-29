@@ -1,113 +1,39 @@
-import streamlit as st
-import sqlite3
-import hashlib
-from datetime import datetime, timedelta
-import os
-import secrets
+# login.py
+# This file now acts as an interface to the database_manager module.
+
+# Import the database functions from the centralized manager
+from database_manager import (
+    authenticate,
+    add_user,
+    log_session,
+    generate_auth_token,
+    validate_auth_token,
+    init_db # Keep init_db import if you want to trigger it from here, though it's better called separately or on app startup
+)
+
+# Optional: Initialize the database if needed when this module is imported.
+# Consider calling this explicitly at the start of your main application (main.py) instead.
+# init_db()
+
+# The functions below are now just wrappers calling the database_manager functions.
+# This keeps login.py lean and focused on the logic flow rather than DB implementation.
+
+# Note: The original file had os, secrets, hashlib, datetime, sqlite3 imports and 
+# functions like make_hash, init_db (SQLite version), etc. These are removed 
+# as their responsibilities are now handled by database_manager.py using 
+# SQLAlchemy, pyodbc, bcrypt, etc. for Azure SQL.
+
+# Example of how the functions are now just pass-throughs (no actual code needed here
+# as the imports above make the functions directly available):
+
+# def authenticate(username, password):
+#     return db_manager_authenticate(username, password)
+
+# def add_user(username, password, email):
+#     return db_manager_add_user(username, password, email)
+
+# ... and so on for log_session, generate_auth_token, validate_auth_token
+
+print("login.py: Using database functions from database_manager")
 
 
-def generate_auth_token(user_id):
-    token = secrets.token_hex(16)  # Generate a secure random token
-    expiry = datetime.now() + timedelta(days=7)  # Token valid for 7 days
-    
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        
-        # Create auth_tokens table if it doesn't exist
-        c.execute('''
-        CREATE TABLE IF NOT EXISTS auth_tokens (
-            id INTEGER PRIMARY KEY,
-            user_id INTEGER,
-            token TEXT UNIQUE,
-            created_at TIMESTAMP,
-            expires_at TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        ''')
-        
-        # Store the new token
-        c.execute('''
-        INSERT INTO auth_tokens (user_id, token, created_at, expires_at)
-        VALUES (?, ?, ?, ?)
-        ''', (user_id, token, datetime.now(), expiry))
-        
-        conn.commit()
-        return token
-
-def validate_auth_token(token):
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        
-        # Get user associated with token if it's not expired
-        c.execute('''
-        SELECT u.id, u.username FROM auth_tokens t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.token = ? AND t.expires_at > ?
-        ''', (token, datetime.now()))
-        
-        result = c.fetchone()
-        return result  # Returns (user_id, username) or None
-
-
-if not os.path.exists("./data"):
-    os.makedirs("./data")
-
-def init_db():
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        
-        c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            email TEXT UNIQUE,
-            learning_type TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
-        c.execute('''
-        CREATE TABLE IF NOT EXISTS user_sessions (
-            id INTEGER PRIMARY KEY,
-            user_id INTEGER,
-            login_time TIMESTAMP,
-            logout_time TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        ''')
-        conn.commit()
-
-init_db()
-
-def make_hash(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-def authenticate(username, password):
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        hashed_pw = make_hash(password)
-        c.execute('SELECT id, username FROM users WHERE username = ? AND password = ?', (username, hashed_pw))
-        result = c.fetchone()
-        return result
-
-def add_user(username, password, email):
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        hashed_pw = make_hash(password)
-        try:
-            c.execute('INSERT INTO users (username, password, email) VALUES (?, ?, ?)', (username, hashed_pw, email))
-            conn.commit()
-            user_id = c.lastrowid
-            return user_id
-        except sqlite3.IntegrityError:
-            return None
-
-def log_session(user_id):
-    with sqlite3.connect('./data/users.db') as conn:
-        c = conn.cursor()
-        login_time = datetime.now()
-        c.execute('INSERT INTO user_sessions (user_id, login_time) VALUES (?, ?)', (user_id, login_time))
-        conn.commit()
-        session_id = c.lastrowid
-        return session_id

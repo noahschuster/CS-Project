@@ -1,8 +1,53 @@
 import streamlit as st
 import sqlite3
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import secrets
+
+
+def generate_auth_token(user_id):
+    token = secrets.token_hex(16)  # Generate a secure random token
+    expiry = datetime.now() + timedelta(days=7)  # Token valid for 7 days
+    
+    with sqlite3.connect('./data/users.db') as conn:
+        c = conn.cursor()
+        
+        # Create auth_tokens table if it doesn't exist
+        c.execute('''
+        CREATE TABLE IF NOT EXISTS auth_tokens (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            token TEXT UNIQUE,
+            created_at TIMESTAMP,
+            expires_at TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        ''')
+        
+        # Store the new token
+        c.execute('''
+        INSERT INTO auth_tokens (user_id, token, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+        ''', (user_id, token, datetime.now(), expiry))
+        
+        conn.commit()
+        return token
+
+def validate_auth_token(token):
+    with sqlite3.connect('./data/users.db') as conn:
+        c = conn.cursor()
+        
+        # Get user associated with token if it's not expired
+        c.execute('''
+        SELECT u.id, u.username FROM auth_tokens t
+        JOIN users u ON t.user_id = u.id
+        WHERE t.token = ? AND t.expires_at > ?
+        ''', (token, datetime.now()))
+        
+        result = c.fetchone()
+        return result  # Returns (user_id, username) or None
+
 
 if not os.path.exists("./data"):
     os.makedirs("./data")

@@ -3,6 +3,8 @@ from datetime import datetime
 import api_connection
 from utils import get_user_sessions, get_user_learning_type
 import sqlite3
+from datetime import datetime, timedelta
+
 
 def check_login():
     if not st.session_state.get('logged_in', False):
@@ -93,10 +95,24 @@ def logout_user():
         c = conn.cursor()
         logout_time = datetime.now()
         session_id = st.session_state.get('session_id')
+        user_id = st.session_state.get('user_id')
         
         if session_id:
             c.execute('UPDATE user_sessions SET logout_time = ? WHERE id = ?', (logout_time, session_id))
-            conn.commit()
+        
+        # Remove the auth token from the database
+        if user_id:
+            auth_token = st.query_params.get('auth_token', None)
+            if auth_token:
+                c.execute('DELETE FROM auth_tokens WHERE token = ?', (auth_token,))
+        
+        conn.commit()
     
+    # Clear session state
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+    
+    # Clear URL parameters
+    st.query_params.clear()
+
+

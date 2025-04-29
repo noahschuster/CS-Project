@@ -1,10 +1,30 @@
 import streamlit as st
-from login import authenticate, add_user, log_session
+from login import authenticate, add_user, log_session, generate_auth_token, validate_auth_token
+from datetime import datetime, timedelta
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 def main():
+    # Check URL parameters for auth token
+    auth_token = st.query_params.get('auth_token', None)
+    
+    # If we have a token and not logged in yet, try to validate it
+    if auth_token and not st.session_state.get('logged_in', False):
+        user = validate_auth_token(auth_token)
+        if user:
+            user_id, username = user
+            st.session_state['logged_in'] = True
+            st.session_state['username'] = username
+            st.session_state['user_id'] = user_id
+            
+            # Log this session
+            session_id = log_session(user_id)
+            st.session_state['session_id'] = session_id
+            
+            # Keep the token in the URL
+            st.query_params['auth_token'] = auth_token
+    
     if not st.session_state.get('logged_in', False):
         show_login_page()
     else:
@@ -26,7 +46,7 @@ def show_login_page():
         col1, col2 = st.columns([3, 1])
         with col2:
             login_button = st.button("Login")
-        
+            
         if login_button:
             if username and password:
                 user = authenticate(username, password)
@@ -39,8 +59,11 @@ def show_login_page():
                     session_id = log_session(user_id)
                     st.session_state['session_id'] = session_id
                     
-                    # Removed st.set_query_params(logged_in="true")
-                    st.rerun()  # Use st.rerun() instead
+                    # Generate and set auth token in URL
+                    auth_token = generate_auth_token(user_id)
+                    st.query_params['auth_token'] = auth_token
+                    
+                    st.rerun()
                 else:
                     st.error("Invalid username or password")
             else:
@@ -57,7 +80,7 @@ def show_login_page():
         col1, col2 = st.columns([3, 1])
         with col2:
             signup_button = st.button("Sign Up")
-        
+            
         if signup_button:
             if new_username and new_email and new_password:
                 if new_password == confirm_password:
@@ -65,7 +88,6 @@ def show_login_page():
                         user_id = add_user(new_username, new_password, new_email)
                         if user_id:
                             st.success("Account created successfully! You can now log in.")
-                            # Removed st.set_query_params(signed_up="true")
                         else:
                             st.error("Username or email already exists")
                     else:

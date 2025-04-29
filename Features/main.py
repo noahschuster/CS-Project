@@ -2,6 +2,13 @@ import streamlit as st
 from login import authenticate, add_user, log_session, generate_auth_token, validate_auth_token
 from datetime import datetime, timedelta
 
+# Set page configuration at the very beginning of your script
+st.set_page_config(
+    page_title="StudyBuddy",
+    page_icon="📚",
+    layout="centered"
+)
+
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
@@ -44,7 +51,7 @@ def show_login_page():
         password = st.text_input("Password", type="password", key="login_password")
         
         col1, col2 = st.columns([3, 1])
-        with col2:
+        with col1:
             login_button = st.button("Login")
             
         if login_button:
@@ -78,7 +85,7 @@ def show_login_page():
         confirm_password = st.text_input("Confirm Password", type="password", key="confirm_password")
         
         col1, col2 = st.columns([3, 1])
-        with col2:
+        with col1:
             signup_button = st.button("Sign Up")
             
         if signup_button:

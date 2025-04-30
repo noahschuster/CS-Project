@@ -1,4 +1,4 @@
 .env
 studybuddy.db
 users.db
-__pycache__/
+Features/__pycache__/

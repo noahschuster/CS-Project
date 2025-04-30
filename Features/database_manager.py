@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, MetaData, Table, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy import Boolean
 
 # Load environment variables from .env file
 load_dotenv()
@@ -90,7 +91,228 @@ engine = get_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Add these functions to database_manager.py
+
+def save_calendar_event(user_id, event_data):
+    """Saves a calendar event to the database"""
+    session = SessionLocal()
+    try:
+        # Check if event type is a deadline type
+        is_deadline = event_data['type'] in ["Exam", "Assignment Due", "Project Due"]
+        
+        new_event = CalendarEvent(
+            user_id=user_id,
+            title=event_data['title'],
+            date=event_data['date'],
+            time=event_data['time'],
+            event_type=event_data['type'],
+            color=event_data['color'],
+            is_deadline=is_deadline,
+            priority=2  # Default medium priority
+        )
+        session.add(new_event)
+        session.commit()
+        session.refresh(new_event)
+        print(f"Event saved successfully for user ID: {user_id}. Event ID: {new_event.id}")
+        return new_event.id
+    except Exception as e:
+        session.rollback()
+        print(f"Error saving calendar event: {e}")
+        return None
+    finally:
+        session.close()
+
+def get_calendar_events(user_id):
+    """Gets all calendar events for a user"""
+    session = SessionLocal()
+    try:
+        events = session.query(CalendarEvent).filter(CalendarEvent.user_id == user_id).all()
+        return [
+            {
+                'id': event.id,
+                'date': event.date,
+                'title': event.title,
+                'time': event.time,
+                'type': event.event_type,
+                'color': event.color,
+                'user_id': event.user_id,
+                'is_deadline': event.is_deadline,
+                'priority': event.priority
+            }
+            for event in events
+        ]
+    except Exception as e:
+        print(f"Error getting calendar events: {e}")
+        return []
+    finally:
+        session.close()
+
+def update_calendar_event(event_id, event_data):
+    """Updates an existing calendar event"""
+    session = SessionLocal()
+    try:
+        event = session.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+        if event:
+            # Check if event type is a deadline type
+            is_deadline = event_data['type'] in ["Exam", "Assignment Due", "Project Due"]
+            
+            event.title = event_data['title']
+            event.date = event_data['date']
+            event.time = event_data['time']
+            event.event_type = event_data['type']
+            event.color = event_data['color']
+            event.is_deadline = is_deadline
+            
+            session.commit()
+            print(f"Event updated successfully. Event ID: {event_id}")
+            return True
+        print(f"Event not found for ID: {event_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error updating calendar event: {e}")
+        return False
+    finally:
+        session.close()
+
+def delete_calendar_event(event_id):
+    """Deletes a calendar event"""
+    session = SessionLocal()
+    try:
+        event = session.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+        if event:
+            session.delete(event)
+            session.commit()
+            print(f"Event deleted successfully. Event ID: {event_id}")
+            return True
+        print(f"Event not found for ID: {event_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error deleting calendar event: {e}")
+        return False
+    finally:
+        session.close()
+
+# Add these functions to database_manager.py
+
+def save_calendar_event(user_id, event_data):
+    """Saves a calendar event to the database"""
+    session = SessionLocal()
+    try:
+        # Check if event type is a deadline type
+        is_deadline = event_data['type'] in ["Exam", "Assignment Due", "Project Due"]
+        
+        new_event = CalendarEvent(
+            user_id=user_id,
+            title=event_data['title'],
+            date=event_data['date'],
+            time=event_data['time'],
+            event_type=event_data['type'],
+            color=event_data['color'],
+            is_deadline=is_deadline,
+            priority=2  # Default medium priority
+        )
+        session.add(new_event)
+        session.commit()
+        session.refresh(new_event)
+        print(f"Event saved successfully for user ID: {user_id}. Event ID: {new_event.id}")
+        return new_event.id
+    except Exception as e:
+        session.rollback()
+        print(f"Error saving calendar event: {e}")
+        return None
+    finally:
+        session.close()
+
+def get_calendar_events(user_id):
+    """Gets all calendar events for a user"""
+    session = SessionLocal()
+    try:
+        events = session.query(CalendarEvent).filter(CalendarEvent.user_id == user_id).all()
+        return [
+            {
+                'id': event.id,
+                'date': event.date,
+                'title': event.title,
+                'time': event.time,
+                'type': event.event_type,
+                'color': event.color,
+                'user_id': event.user_id,
+                'is_deadline': event.is_deadline,
+                'priority': event.priority
+            }
+            for event in events
+        ]
+    except Exception as e:
+        print(f"Error getting calendar events: {e}")
+        return []
+    finally:
+        session.close()
+
+def update_calendar_event(event_id, event_data):
+    """Updates an existing calendar event"""
+    session = SessionLocal()
+    try:
+        event = session.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+        if event:
+            # Check if event type is a deadline type
+            is_deadline = event_data['type'] in ["Exam", "Assignment Due", "Project Due"]
+            
+            event.title = event_data['title']
+            event.date = event_data['date']
+            event.time = event_data['time']
+            event.event_type = event_data['type']
+            event.color = event_data['color']
+            event.is_deadline = is_deadline
+            
+            session.commit()
+            print(f"Event updated successfully. Event ID: {event_id}")
+            return True
+        print(f"Event not found for ID: {event_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error updating calendar event: {e}")
+        return False
+    finally:
+        session.close()
+
+def delete_calendar_event(event_id):
+    """Deletes a calendar event"""
+    session = SessionLocal()
+    try:
+        event = session.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+        if event:
+            session.delete(event)
+            session.commit()
+            print(f"Event deleted successfully. Event ID: {event_id}")
+            return True
+        print(f"Event not found for ID: {event_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error deleting calendar event: {e}")
+        return False
+    finally:
+        session.close()
+
 # --- SQLAlchemy ORM Models ---
+
+# Add to database_manager.py (when you implement the database integration)
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(100), nullable=False)
+    date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
+    time = Column(String(5), nullable=False)   # Format: HH:MM
+    event_type = Column(String(50), nullable=False)
+    color = Column(String(7), nullable=False)  # Hex color code
+    is_deadline = Column(Boolean, default=False)  # New field to flag deadlines
+    priority = Column(Integer, default=2)  # Priority: 1=High, 2=Medium, 3=Low
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class User(Base):
     __tablename__ = "users"

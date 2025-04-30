@@ -35,5 +35,3 @@ from database_manager import (
 # ... and so on for log_session, generate_auth_token, validate_auth_token
 
 print("login.py: Using database functions from database_manager")
-
-

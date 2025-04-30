@@ -1,22 +1,82 @@
 import streamlit as st
 from utils import get_user_learning_type
 
-# Tipps basierend auf VARK-Lernstrategien (vark-strategies.docx) citeturn0file0
+# 🌈 Fullscreen Lern-Tipps mit modernen Effekten (VARK-Strategien)
 def display_learning_tips(user_id):
     """
-    Zeigt personalisierte Lerntipps basierend auf dem VARK-Lerntyp des Nutzers.
-    Unterstützt Einzel- und Multimodal-Präferenzen.
+    Zeigt motivierende, fullscreen Lerntipps mit Mikroanimationen
+    basierend auf dem VARK-Lerntyp des Nutzers.
     """
-    st.title("Personalisierte Lern-Tipps")
+    # --- CSS für Fullscreen, animierten Verlauf und Karten-Design ---
+    st.markdown("""
+    <style>
+    /* Hauptbereich auf Full Width & Height strecken */
+    .css-1lcbmhc.e1tzin5v1 {
+        width: 100vw !important;
+        padding: 0 !important;
+    }
+    .css-1lcbmhc.e1tzin5v1 > div {
+        margin: 0 !important;
+    }
+    /* Hintergrund-Verlauf animiert */
+    .streamlit-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+    }
+    @keyframes gradientBG {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
+    }
+    /* Karten-Styling */
+    .tip-card {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      padding: 2rem;
+      border-radius: 1rem;
+      margin: 2rem auto;
+      max-width: 90vw;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+    .tip-card:hover {
+      transform: scale(1.02);
+    }
+    .tip-card h2 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #0366d6;
+    }
+    .tip-card ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .tip-card li:before {
+      content: "💡";
+      margin-right: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # --- Konfetti & Vibrationseffekt ---
+    st.components.v1.html("""
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <script>
+      setTimeout(() => confetti({ particleCount: 100, spread: 50 }), 500);
+      if (navigator.vibrate) { navigator.vibrate([100,50,100]); }
+    </script>
+    """, height=0)
+
+    st.title("✨ Personalisierte Lern-Tipps ✨")
     
     learning_type = get_user_learning_type(user_id)
     if not learning_type:
-        st.warning("Du hast deinen Lerntyp noch nicht festgelegt. Gehe zum Abschnitt 'Lerntyp' und mache den Test.")
+        st.warning("⚠️ Du hast deinen Lerntyp noch nicht festgelegt. Gehe zum Abschnitt 'Lerntyp' und mache den Test.")
         return
-    
-    st.write(f"Basierend auf deinem **{learning_type}**-Lernstil, hier einige Tipps zur Optimierung deines Lernens:")
 
-    # Zuordnung von Lerntypen zu Strategien
+    # Mapping VARK-Lerntypen zu Titeln und Tipps
     tip_mapping = {
         "Visuell": {
             "title": "Visuelle Strategien",
@@ -73,23 +133,31 @@ def display_learning_tips(user_id):
         }
     }
 
-    # Bestimmen, welche Typen angezeigt werden (unterstützt Multimodal-Präferenzen)
-    types_to_display = []
+    # Unterstützung für Multimodal-Präferenzen
     if learning_type.startswith("Multimodal"):
-        start = learning_type.find("(")
-        end = learning_type.find(")")
-        if start != -1 and end != -1:
-            dominant = learning_type[start+1:end].split(",")
-            types_to_display = [style.strip() for style in dominant]
+        s,e = learning_type.find("("), learning_type.find(")")
+        types_to_display = [lt.strip() for lt in learning_type[s+1:e].split(",")] if s!=-1 and e!=-1 else []
     else:
         types_to_display = [learning_type]
 
-    # Anzeigen der Tipps
+    # Tipps als Fullscreen-Karten anzeigen
     for lt in types_to_display:
         strategy = tip_mapping.get(lt)
-        if strategy:
-            st.subheader(strategy["title"])
-            for tip in strategy["tips"]:
-                st.markdown(f"- {tip}")
-        else:
+        if not strategy:
             st.warning(f"Keine Tipps verfügbar für den Lerntyp: {lt}")
+            continue
+        st.markdown(f"""
+        <div class='tip-card'>
+          <h2>{strategy['title']}</h2>
+          <ul>
+            {''.join(f'<li>{t}</li>' for t in strategy['tips'])}
+          </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Abschließendes Konfetti
+    st.components.v1.html("""
+    <script>
+      setTimeout(() => confetti({ particleCount: 150, spread: 70 }), 1200);
+    </script>
+    """, height=0)

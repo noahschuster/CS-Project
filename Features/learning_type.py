@@ -2,48 +2,48 @@ import streamlit as st
 from utils import get_user_learning_type, set_learning_type
 
 def display_learning_type(user_id):
-    st.title("Discover Your Learning Type - VARK Questionnaire")
+    st.title("Entdecke deinen Lerntyp - VARK Fragebogen")
     
     current_type = get_user_learning_type(user_id)
     if current_type:
-        st.success(f"Your current learning type: {current_type}")
-        st.write("Want to retake the quiz? Use the form below.")
+        st.success(f"Dein aktueller Lerntyp: {current_type}")
+        st.write("Möchtest du den Test noch einmal machen? Benutze das Formular unten.")
     
-    st.subheader("The VARK Questionnaire (Version 7.8)")
-    st.write("How Do I Learn Best?")
+    st.subheader("Der VARK Fragebogen (Version 7.8)")
+    st.write("Wie lerne ich am besten?")
     
-    # Clearer instructions about being able to select multiple answers
+    # Klarere Anweisungen zur Mehrfachauswahl
     st.info("""
-    Instructions:
-    - Choose the answer(s) which best explain your preference for each question.
-    - You can select more than one option if a single answer does not match your perception.
-    - Select all that apply to you - there's no limit on how many you can choose per question.
+    Anleitung:
+    - Wähle die Antwort(en), die deine Präferenz für jede Frage am besten erklären.
+    - Du kannst mehr als eine Option auswählen, wenn eine einzelne Antwort nicht zu deiner Wahrnehmung passt.
+    - Wähle alle zutreffenden Optionen - es gibt keine Begrenzung, wie viele du pro Frage auswählen kannst.
     """)
     
     with st.form("vark_questionnaire"):
         all_answers = {}
         
-        # Question 1
-        st.write("1. You are helping someone who wants to go to your airport, the center of town or railway station. You would:")
+        # Frage 1
+        st.write("1. Du hilfst jemandem, der zum Flughafen, ins Stadtzentrum oder zum Bahnhof möchte. Du würdest:")
         q1_options = [
-            "go with her.",
-            "tell her the directions.",
-            "write down the directions.",
-            "draw, or show her a map, or give her a map."
+            "mit ihr mitgehen.",
+            "ihr den Weg erklären.",
+            "die Wegbeschreibung aufschreiben.",
+            "eine Karte zeichnen, zeigen oder ihr eine Karte geben."
         ]
         q1_selections = []
         for i, option in enumerate(q1_options):
             if st.checkbox(option, key=f"q1_{i}"):
-                q1_selections.append(chr(97 + i))  # Convert to a, b, c, d
+                q1_selections.append(chr(97 + i))  # Umwandlung in a, b, c, d
         all_answers[1] = q1_selections
         
-        # Question 2
-        st.write("2. A website has a video showing how to make a special graph. There is a person speaking, some lists and words describing what to do and some diagrams. You would learn most from:")
+        # Frage 2
+        st.write("2. Eine Website zeigt ein Video, wie man ein spezielles Diagramm erstellt. Es gibt eine Person, die spricht, einige Listen und Wörter, die beschreiben, was zu tun ist, und einige Diagramme. Du würdest am meisten lernen durch:")
         q2_options = [
-            "seeing the diagrams.",
-            "listening.",
-            "reading the words.",
-            "watching the actions."
+            "das Betrachten der Diagramme.",
+            "das Zuhören.",
+            "das Lesen der Wörter.",
+            "das Beobachten der Handlungen."
         ]
         q2_selections = []
         for i, option in enumerate(q2_options):
@@ -51,13 +51,13 @@ def display_learning_type(user_id):
                 q2_selections.append(chr(97 + i))
         all_answers[2] = q2_selections
         
-        # Question 3
-        st.write("3. You are planning a vacation for a group. You want some feedback from them about the plan. You would:")
+        # Frage 3
+        st.write("3. Du planst einen Urlaub für eine Gruppe. Du möchtest Feedback zu deinem Plan. Du würdest:")
         q3_options = [
-            "describe some of the highlights they will experience.",
-            "use a map to show them the places.",
-            "give them a copy of the printed itinerary.",
-            "phone, text or email them."
+            "einige der Höhepunkte beschreiben, die sie erleben werden.",
+            "eine Karte verwenden, um ihnen die Orte zu zeigen.",
+            "ihnen eine Kopie des gedruckten Reiseplans geben.",
+            "sie anrufen, ihnen eine Textnachricht oder E-Mail schicken."
         ]
         q3_selections = []
         for i, option in enumerate(q3_options):
@@ -65,13 +65,13 @@ def display_learning_type(user_id):
                 q3_selections.append(chr(97 + i))
         all_answers[3] = q3_selections
         
-        # Question 4
-        st.write("4. You are going to cook something as a special treat. You would:")
+        # Frage 4
+        st.write("4. Du möchtest etwas Besonderes kochen. Du würdest:")
         q4_options = [
-            "cook something you know without the need for instructions.",
-            "ask friends for suggestions.",
-            "look on the Internet or in some cookbooks for ideas from the pictures.",
-            "use a good recipe."
+            "etwas kochen, das du kennst, ohne Anleitung zu benötigen.",
+            "Freunde um Vorschläge bitten.",
+            "im Internet oder in Kochbüchern nach Ideen anhand von Bildern suchen.",
+            "ein gutes Rezept verwenden."
         ]
         q4_selections = []
         for i, option in enumerate(q4_options):
@@ -79,13 +79,13 @@ def display_learning_type(user_id):
                 q4_selections.append(chr(97 + i))
         all_answers[4] = q4_selections
         
-        # Question 5
-        st.write("5. A group of tourists want to learn about the parks or wildlife reserves in your area. You would:")
+        # Frage 5
+        st.write("5. Eine Gruppe von Touristen möchte etwas über die Parks oder Naturschutzgebiete in deiner Region erfahren. Du würdest:")
         q5_options = [
-            "talk about, or arrange a talk for them about parks or wildlife reserves.",
-            "show them maps and internet pictures.",
-            "take them to a park or wildlife reserve and walk with them.",
-            "give them a book or pamphlets about the parks or wildlife reserves."
+            "über Parks oder Naturschutzgebiete sprechen oder einen Vortrag für sie organisieren.",
+            "ihnen Karten und Internetbilder zeigen.",
+            "sie zu einem Park oder Naturschutzgebiet mitnehmen und mit ihnen wandern.",
+            "ihnen ein Buch oder Broschüren über die Parks oder Naturschutzgebiete geben."
         ]
         q5_selections = []
         for i, option in enumerate(q5_options):
@@ -93,13 +93,13 @@ def display_learning_type(user_id):
                 q5_selections.append(chr(97 + i))
         all_answers[5] = q5_selections
         
-        # Question 6
-        st.write("6. You are about to purchase a digital camera or mobile phone. Other than price, what would most influence your decision?")
+        # Frage 6
+        st.write("6. Du bist dabei, eine Digitalkamera oder ein Mobiltelefon zu kaufen. Abgesehen vom Preis, was würde deine Entscheidung am meisten beeinflussen?")
         q6_options = [
-            "Trying or testing it.",
-            "Reading the details or checking its features online.",
-            "It is a modern design and looks good.",
-            "The salesperson telling me about its features."
+            "Es auszuprobieren oder zu testen.",
+            "Die Details zu lesen oder die Funktionen online zu überprüfen.",
+            "Es hat ein modernes Design und sieht gut aus.",
+            "Der Verkäufer erzählt mir von seinen Funktionen."
         ]
         q6_selections = []
         for i, option in enumerate(q6_options):
@@ -107,13 +107,13 @@ def display_learning_type(user_id):
                 q6_selections.append(chr(97 + i))
         all_answers[6] = q6_selections
         
-        # Question 7
-        st.write("7. Remember a time when you learned how to do something new. Avoid choosing a physical skill, e.g. riding a bike. You learned best by:")
+        # Frage 7
+        st.write("7. Erinnere dich an eine Zeit, als du etwas Neues gelernt hast. Vermeide es, eine körperliche Fähigkeit zu wählen, z.B. Fahrradfahren. Du hast am besten gelernt durch:")
         q7_options = [
-            "watching a demonstration.",
-            "listening to somebody explaining it and asking questions.",
-            "diagrams, maps, and charts - visual clues.",
-            "written instructions – e.g. a manual or book."
+            "das Beobachten einer Demonstration.",
+            "das Zuhören, während jemand es erklärt, und das Stellen von Fragen.",
+            "Diagramme, Karten und Schaubilder - visuelle Hinweise.",
+            "schriftliche Anweisungen - z.B. ein Handbuch oder Buch."
         ]
         q7_selections = []
         for i, option in enumerate(q7_options):
@@ -121,13 +121,13 @@ def display_learning_type(user_id):
                 q7_selections.append(chr(97 + i))
         all_answers[7] = q7_selections
         
-        # Question 8
-        st.write("8. You have a problem with your heart. You would prefer that the doctor:")
+        # Frage 8
+        st.write("8. Du hast ein Problem mit deinem Herzen. Du würdest es vorziehen, dass der Arzt:")
         q8_options = [
-            "gave you a something to read to explain what was wrong.",
-            "used a plastic model to show what was wrong.",
-            "described what was wrong.",
-            "showed you a diagram of what was wrong."
+            "dir etwas zum Lesen gibt, um zu erklären, was falsch ist.",
+            "ein Plastikmodell verwendet, um zu zeigen, was falsch ist.",
+            "beschreibt, was falsch ist.",
+            "dir ein Diagramm zeigt, was falsch ist."
         ]
         q8_selections = []
         for i, option in enumerate(q8_options):
@@ -135,13 +135,13 @@ def display_learning_type(user_id):
                 q8_selections.append(chr(97 + i))
         all_answers[8] = q8_selections
         
-        # Question 9
-        st.write("9. You want to learn a new program, skill or game on a computer. You would:")
+        # Frage 9
+        st.write("9. Du möchtest ein neues Programm, eine Fertigkeit oder ein Spiel auf einem Computer lernen. Du würdest:")
         q9_options = [
-            "read the written instructions that came with the program.",
-            "talk with people who know about the program.",
-            "use the controls or keyboard.",
-            "follow the diagrams in the book that came with it."
+            "die schriftlichen Anweisungen lesen, die mit dem Programm geliefert wurden.",
+            "mit Leuten sprechen, die das Programm kennen.",
+            "die Steuerelemente oder die Tastatur benutzen.",
+            "den Diagrammen im Buch folgen, das mitgeliefert wurde."
         ]
         q9_selections = []
         for i, option in enumerate(q9_options):
@@ -149,13 +149,13 @@ def display_learning_type(user_id):
                 q9_selections.append(chr(97 + i))
         all_answers[9] = q9_selections
         
-        # Question 10
-        st.write("10. I like websites that have:")
+        # Frage 10
+        st.write("10. Ich mag Websites, die:")
         q10_options = [
-            "things I can click on, shift or try.",
-            "interesting design and visual features.",
-            "interesting written descriptions, lists and explanations.",
-            "audio channels where I can hear music, radio programs or interviews."
+            "Dinge haben, auf die ich klicken, verschieben oder ausprobieren kann.",
+            "ein interessantes Design und visuelle Elemente haben.",
+            "interessante schriftliche Beschreibungen, Listen und Erklärungen haben.",
+            "Audiokanäle haben, wo ich Musik, Radioprogramme oder Interviews hören kann."
         ]
         q10_selections = []
         for i, option in enumerate(q10_options):
@@ -163,13 +163,13 @@ def display_learning_type(user_id):
                 q10_selections.append(chr(97 + i))
         all_answers[10] = q10_selections
         
-        # Question 11
-        st.write("11. Other than price, what would most influence your decision to buy a new non-fiction book?")
+        # Frage 11
+        st.write("11. Abgesehen vom Preis, was würde deine Entscheidung, ein neues Sachbuch zu kaufen, am meisten beeinflussen?")
         q11_options = [
-            "The way it looks is appealing.",
-            "Quickly reading parts of it.",
-            "A friend talks about it and recommends it.",
-            "It has real-life stories, experiences and examples."
+            "Sein Aussehen ist ansprechend.",
+            "Schnelles Durchlesen von Teilen davon.",
+            "Ein Freund spricht darüber und empfiehlt es.",
+            "Es enthält reale Geschichten, Erfahrungen und Beispiele."
         ]
         q11_selections = []
         for i, option in enumerate(q11_options):
@@ -177,13 +177,13 @@ def display_learning_type(user_id):
                 q11_selections.append(chr(97 + i))
         all_answers[11] = q11_selections
         
-        # Question 12
-        st.write("12. You are using a book, CD or website to learn how to take photos with your new digital camera. You would like to have:")
+        # Frage 12
+        st.write("12. Du benutzt ein Buch, eine CD oder eine Website, um zu lernen, wie man mit deiner neuen Digitalkamera Fotos macht. Du möchtest gerne haben:")
         q12_options = [
-            "a chance to ask questions and talk about the camera and its features.",
-            "clear written instructions with lists and bullet points about what to do.",
-            "diagrams showing the camera and what each part does.",
-            "many examples of good and poor photos and how to improve them."
+            "die Möglichkeit, Fragen zu stellen und über die Kamera und ihre Funktionen zu sprechen.",
+            "klare schriftliche Anweisungen mit Listen und Aufzählungspunkten darüber, was zu tun ist.",
+            "Diagramme, die die Kamera und die Funktion jedes Teils zeigen.",
+            "viele Beispiele für gute und schlechte Fotos und wie man sie verbessern kann."
         ]
         q12_selections = []
         for i, option in enumerate(q12_options):
@@ -191,13 +191,13 @@ def display_learning_type(user_id):
                 q12_selections.append(chr(97 + i))
         all_answers[12] = q12_selections
         
-        # Question 13
-        st.write("13. Do you prefer a teacher or a presenter who uses:")
+        # Frage 13
+        st.write("13. Bevorzugst du einen Lehrer oder Vortragenden, der:")
         q13_options = [
-            "demonstrations, models or practical sessions.",
-            "question and answer, talk, group discussion, or guest speakers.",
-            "handouts, books, or readings.",
-            "diagrams, charts or graphs."
+            "Demonstrationen, Modelle oder praktische Übungen verwendet.",
+            "Fragen und Antworten, Gespräche, Gruppendiskussionen oder Gastredner einsetzt.",
+            "Handouts, Bücher oder Texte zum Lesen verwendet.",
+            "Diagramme, Schaubilder oder Grafiken einsetzt."
         ]
         q13_selections = []
         for i, option in enumerate(q13_options):
@@ -205,13 +205,13 @@ def display_learning_type(user_id):
                 q13_selections.append(chr(97 + i))
         all_answers[13] = q13_selections
         
-        # Question 14
-        st.write("14. You have finished a competition or test and would like some feedback. You would like to have feedback:")
+        # Frage 14
+        st.write("14. Du hast einen Wettbewerb oder Test abgeschlossen und möchtest Feedback. Du hättest gerne Feedback:")
         q14_options = [
-            "using examples from what you have done.",
-            "using a written description of your results.",
-            "from somebody who talks it through with you.",
-            "using graphs showing what you had achieved."
+            "anhand von Beispielen aus dem, was du getan hast.",
+            "mit einer schriftlichen Beschreibung deiner Ergebnisse.",
+            "von jemandem, der es mit dir durchspricht.",
+            "anhand von Grafiken, die zeigen, was du erreicht hast."
         ]
         q14_selections = []
         for i, option in enumerate(q14_options):
@@ -219,13 +219,13 @@ def display_learning_type(user_id):
                 q14_selections.append(chr(97 + i))
         all_answers[14] = q14_selections
         
-        # Question 15
-        st.write("15. You are going to choose food at a restaurant or cafe. You would:")
+        # Frage 15
+        st.write("15. Du wirst in einem Restaurant oder Café Essen auswählen. Du würdest:")
         q15_options = [
-            "choose something that you have had there before.",
-            "listen to the waiter or ask friends to recommend choices.",
-            "choose from the descriptions in the menu.",
-            "look at what others are eating or look at pictures of each dish."
+            "etwas wählen, das du dort schon einmal hattest.",
+            "dem Kellner zuhören oder Freunde um Empfehlungen bitten.",
+            "aus den Beschreibungen im Menü wählen.",
+            "anschauen, was andere essen oder dir Bilder von jedem Gericht ansehen."
         ]
         q15_selections = []
         for i, option in enumerate(q15_options):
@@ -233,13 +233,13 @@ def display_learning_type(user_id):
                 q15_selections.append(chr(97 + i))
         all_answers[15] = q15_selections
         
-        # Question 16
-        st.write("16. You have to make an important speech at a conference or special occasion. You would:")
+        # Frage 16
+        st.write("16. Du musst eine wichtige Rede auf einer Konferenz oder zu einem besonderen Anlass halten. Du würdest:")
         q16_options = [
-            "make diagrams or get graphs to help explain things.",
-            "write a few key words and practice saying your speech over and over.",
-            "write out your speech and learn from reading it over several times.",
-            "gather many examples and stories to make the talk real and practical."
+            "Diagramme erstellen oder Grafiken verwenden, um Dinge zu erklären.",
+            "einige Schlüsselwörter aufschreiben und das Halten deiner Rede immer wieder üben.",
+            "deine Rede aufschreiben und sie durch mehrmaliges Durchlesen lernen.",
+            "viele Beispiele und Geschichten sammeln, um den Vortrag realistisch und praktisch zu machen."
         ]
         q16_selections = []
         for i, option in enumerate(q16_options):
@@ -247,10 +247,10 @@ def display_learning_type(user_id):
                 q16_selections.append(chr(97 + i))
         all_answers[16] = q16_selections
         
-        submitted = st.form_submit_button("Submit Questionnaire")
+        submitted = st.form_submit_button("Fragebogen abschicken")
         
         if submitted:
-            # VARK Scoring Chart
+            # VARK Bewertungstabelle
             vark_chart = {
                 1: {"a": "K", "b": "A", "c": "R", "d": "V"},
                 2: {"a": "V", "b": "A", "c": "R", "d": "K"},
@@ -270,13 +270,13 @@ def display_learning_type(user_id):
                 16: {"a": "V", "b": "A", "c": "R", "d": "K"}
             }
             
-            # Calculate VARK scores
+            # Berechne VARK-Punkte
             v_score = 0
             a_score = 0
             r_score = 0
             k_score = 0
             
-            # Count the VARK scores based on the answers
+            # Zähle die VARK-Punkte basierend auf den Antworten
             for question_num, answers in all_answers.items():
                 for answer in answers:
                     if answer in vark_chart[question_num]:
@@ -290,55 +290,55 @@ def display_learning_type(user_id):
                         elif vark_type == "K":
                             k_score += 1
             
-            # Display scores
-            st.subheader("Your VARK Learning Style Results")
+            # Ergebnisse anzeigen
+            st.subheader("Deine VARK Lernstil-Ergebnisse")
             
             scores_df = {
-                "Visual": v_score,
-                "Aural/Auditory": a_score,
-                "Read/Write": r_score,
-                "Kinesthetic": k_score
+                "Visuell": v_score,
+                "Auditiv": a_score,
+                "Lesen/Schreiben": r_score,
+                "Kinästhetisch": k_score
             }
             
-            # Create a bar chart
+            # Balkendiagramm erstellen
             st.bar_chart(scores_df)
             
-            # Find the dominant learning style(s)
+            # Dominanten Lernstil(e) finden
             max_score = max(v_score, a_score, r_score, k_score)
             dominant_styles = []
             
             if v_score == max_score:
-                dominant_styles.append("Visual")
+                dominant_styles.append("Visuell")
             if a_score == max_score:
-                dominant_styles.append("Aural/Auditory")
+                dominant_styles.append("Auditiv")
             if r_score == max_score:
-                dominant_styles.append("Read/Write")
+                dominant_styles.append("Lesen/Schreiben")
             if k_score == max_score:
-                dominant_styles.append("Kinesthetic")
+                dominant_styles.append("Kinästhetisch")
             
-            # Display results
-            st.write(f"Visual (V): {v_score}")
-            st.write(f"Aural/Auditory (A): {a_score}")
-            st.write(f"Read/Write (R): {r_score}")
-            st.write(f"Kinesthetic (K): {k_score}")
+            # Ergebnisse anzeigen
+            st.write(f"Visuell (V): {v_score}")
+            st.write(f"Auditiv (A): {a_score}")
+            st.write(f"Lesen/Schreiben (R): {r_score}")
+            st.write(f"Kinästhetisch (K): {k_score}")
             
-            # Determine if it's a single or multimodal preference
+            # Bestimmen, ob es eine einzelne oder multimodale Präferenz ist
             learning_type = ""
             if len(dominant_styles) == 1:
                 learning_type = dominant_styles[0]
-                st.success(f"Your dominant learning style is: {learning_type}")
+                st.success(f"Dein dominanter Lernstil ist: {learning_type}")
             else:
                 learning_type = "Multimodal (" + ", ".join(dominant_styles) + ")"
-                st.success(f"You have a multimodal learning preference: {learning_type}")
+                st.success(f"Du hast eine multimodale Lernpräferenz: {learning_type}")
             
-            # Save the learning type
+            # Lerntyp speichern
             if set_learning_type(user_id, learning_type):
                 st.session_state.learning_type_completed = True
-                st.info("Based on your learning type, we'll customize your study experience.")
+                st.info("Basierend auf deinem Lerntyp werden wir deine Lernerfahrung anpassen.")
             else:
-                st.error("There was an error saving your learning type. Please try again.")
+                st.error("Es gab einen Fehler beim Speichern deines Lerntyps. Bitte versuche es erneut.")
     
-    # Place the button outside the form
+    # Platziere den Button außerhalb des Formulars
     if st.session_state.get("learning_type_completed", False):
-        if st.button("Continue to Dashboard"):
-            st.rerun()  # This will trigger a rerun and go to dashboard
+        if st.button("Weiter zum Dashboard"):
+            st.rerun()  # Dies wird einen Neustart auslösen und zum Dashboard führen

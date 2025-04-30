@@ -1,13 +1,11 @@
 # dashboard.py
 import streamlit as st
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from streamlit_cookies_manager import EncryptedCookieManager
-
 # Assuming api_connection and utils are correctly set up for Azure SQL
 import api_connection 
 from utils import get_user_sessions, get_user_learning_type
-
 # Import the specific function needed for logout from database_manager
 from database_manager import delete_session_token
 
@@ -94,6 +92,53 @@ def logout_user(cookies):
     # Stop execution to prevent any further code from running
     st.stop()
 
+def display_upcoming_deadlines(user_id):
+    """Display upcoming deadlines on the dashboard."""
+    from database_manager import get_calendar_events
+    
+    # Get today's date
+    today = datetime.now().date()
+    
+    # Get events from database
+    events = get_calendar_events(user_id)
+    
+    # Filter deadlines - using is_deadline flag from database
+    deadline_types = ["Assignment Due", "Exam", "Project Due"]
+    upcoming_deadlines = [
+        event for event in events
+        if (event.get('is_deadline', False) or 
+            event.get('type') in deadline_types) and
+           today <= datetime.strptime(event['date'], "%Y-%m-%d").date() <= today + timedelta(days=14)
+    ]
+    
+    # Sort by date
+    upcoming_deadlines.sort(key=lambda e: datetime.strptime(e['date'], "%Y-%m-%d"))
+    
+    # Display deadlines
+    if upcoming_deadlines:
+        for deadline in upcoming_deadlines:
+            deadline_date = datetime.strptime(deadline['date'], "%Y-%m-%d").date()
+            days_left = (deadline_date - today).days
+            
+            # Format days left text
+            if days_left == 0:
+                days_text = "⚠️ TODAY"
+            elif days_left == 1:
+                days_text = "⚠️ TOMORROW"
+            else:
+                days_text = f"In {days_left} days"
+            
+            st.markdown(
+                f"""<div style='background-color: {deadline['color']}; padding: 8px;
+                 border-radius: 5px; margin-bottom: 5px;'>
+                <strong>{deadline['title']}</strong> ({deadline['type']})<br>
+                Due: {deadline['date']} at {deadline['time']} - <strong>{days_text}</strong>
+                </div>""",
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("No upcoming deadlines in the next 14 days! 🎉")
+
 
 # --- Main Dashboard UI --- 
 def main(cookies):
@@ -145,7 +190,7 @@ def main(cookies):
 def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")
     st.subheader("Your Learning Journey")
-    
+
     # Assuming get_user_learning_type and get_user_sessions use the correct DB connection
     learning_type = get_user_learning_type(user_id)
     
@@ -198,6 +243,6 @@ def display_dashboard(user_id, username):
         # Error message handled by the try-except block above
         
         st.subheader("Upcoming Deadlines")
-        st.info("This feature is coming soon. You'll be able to track your course deadlines here.")
+        display_upcoming_deadlines(user_id)
 
 # The main() function is the entry point when called from main.py

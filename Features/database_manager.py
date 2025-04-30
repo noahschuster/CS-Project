@@ -278,6 +278,189 @@ def update_calendar_event(event_id, event_data):
     finally:
         session.close()
 
+def save_study_task(user_id, task_data):
+    """Speichert eine Lernaufgabe in der Datenbank"""
+    session = SessionLocal()
+    try:
+        # Konvertiere methods-Liste zu JSON-String
+        methods_json = json.dumps(task_data['methods'])
+        
+        new_task = StudyTask(
+            user_id=user_id,
+            course_id=task_data['course_id'],
+            date=task_data['date'],
+            start_time=task_data['start_time'],
+            end_time=task_data['end_time'],
+            topic=task_data['topic'],
+            methods=methods_json,
+            completed=False
+        )
+        
+        session.add(new_task)
+        session.commit()
+        session.refresh(new_task)
+        
+        print(f"Lernaufgabe gespeichert für Benutzer ID: {user_id}. Aufgaben-ID: {new_task.id}")
+        return new_task.id
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Speichern der Lernaufgabe: {e}")
+        return None
+    finally:
+        session.close()
+
+def get_study_tasks(user_id):
+    """Holt alle Lernaufgaben eines Benutzers aus der Datenbank"""
+    session = SessionLocal()
+    try:
+        tasks = session.query(StudyTask).filter(StudyTask.user_id == user_id).all()
+        
+        return [
+            {
+                'id': task.id,
+                'user_id': task.user_id,
+                'course_id': task.course_id,
+                'date': task.date,
+                'start_time': task.start_time,
+                'end_time': task.end_time,
+                'topic': task.topic,
+                'methods': json.loads(task.methods),
+                'completed': task.completed,
+                'created_at': task.created_at
+            }
+            for task in tasks
+        ]
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Lernaufgaben: {e}")
+        return []
+    finally:
+        session.close()
+
+import json  # Füge diesen Import am Anfang der Datei hinzu, falls noch nicht vorhanden
+
+# Füge diese Klasse zu den ORM-Modellen in database_manager.py hinzu
+class StudyTask(Base):
+    __tablename__ = "study_tasks"
+    __table_args__ = {'extend_existing': True}  # Diese Zeile hinzufügen
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id = Column(String(100), nullable=False)
+    course_title = Column(String(255), nullable=False)
+    course_code = Column(String(50), nullable=False)
+    date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
+    start_time = Column(String(5), nullable=False)  # Format: HH:MM
+    end_time = Column(String(5), nullable=False)  # Format: HH:MM
+    topic = Column(String(255), nullable=False)
+    methods = Column(String(1000), nullable=False)  # JSON-String mit Lernmethoden
+    completed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# Füge diese Funktionen zu database_manager.py hinzu
+def save_study_task(user_id, task_data):
+    """Speichert eine Lernaufgabe in der Datenbank"""
+    session = SessionLocal()
+    try:
+        # Konvertiere methods-Liste zu JSON-String
+        methods_json = json.dumps(task_data['methods'])
+        
+        new_task = StudyTask(
+            user_id=user_id,
+            course_id=task_data['course_id'],
+            course_title=task_data['course_title'],
+            course_code=task_data['course_code'],
+            date=task_data['date'],
+            start_time=task_data['start_time'],
+            end_time=task_data['end_time'],
+            topic=task_data['topic'],
+            methods=methods_json,
+            completed=False
+        )
+        
+        session.add(new_task)
+        session.commit()
+        session.refresh(new_task)
+        
+        print(f"Lernaufgabe gespeichert für Benutzer ID: {user_id}. Aufgaben-ID: {new_task.id}")
+        return new_task.id
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Speichern der Lernaufgabe: {e}")
+        return None
+    finally:
+        session.close()
+
+def get_study_tasks(user_id):
+    """Holt alle Lernaufgaben eines Benutzers aus der Datenbank"""
+    session = SessionLocal()
+    try:
+        tasks = session.query(StudyTask).filter(StudyTask.user_id == user_id).all()
+        
+        return [
+            {
+                'id': task.id,
+                'user_id': task.user_id,
+                'course_id': task.course_id,
+                'course_title': task.course_title,
+                'course_code': task.course_code,
+                'date': task.date,
+                'start_time': task.start_time,
+                'end_time': task.end_time,
+                'topic': task.topic,
+                'methods': json.loads(task.methods),
+                'completed': task.completed,
+                'created_at': task.created_at
+            }
+            for task in tasks
+        ]
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Lernaufgaben: {e}")
+        return []
+    finally:
+        session.close()
+
+def update_study_task_status(task_id, completed):
+    """Aktualisiert den Status einer Lernaufgabe"""
+    session = SessionLocal()
+    try:
+        task = session.query(StudyTask).filter(StudyTask.id == task_id).first()
+        if task:
+            task.completed = completed
+            session.commit()
+            print(f"Status der Lernaufgabe aktualisiert. Aufgaben-ID: {task_id}")
+            return True
+        
+        print(f"Lernaufgabe nicht gefunden für ID: {task_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Aktualisieren des Lernaufgabenstatus: {e}")
+        return False
+    finally:
+        session.close()
+
+def update_study_task_status(task_id, completed):
+    """Aktualisiert den Status einer Lernaufgabe"""
+    session = SessionLocal()
+    try:
+        task = session.query(StudyTask).filter(StudyTask.id == task_id).first()
+        if task:
+            task.completed = completed
+            session.commit()
+            print(f"Status der Lernaufgabe aktualisiert. Aufgaben-ID: {task_id}")
+            return True
+        
+        print(f"Lernaufgabe nicht gefunden für ID: {task_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Aktualisieren des Lernaufgabenstatus: {e}")
+        return False
+    finally:
+        session.close()
+
+
 def delete_calendar_event(event_id):
     """Deletes a calendar event"""
     session = SessionLocal()
@@ -313,7 +496,30 @@ class CalendarEvent(Base):
     priority = Column(Integer, default=2)  # Priority: 1=High, 2=Medium, 3=Low
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class Course(Base):
+    __tablename__ = "courses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(String(100), unique=True, index=True)
+    meeting_code = Column(String(50))
+    title = Column(String(255))
+    description = Column(String)
+    language_id = Column(Integer)
+    max_credits = Column(String)
+    term_id = Column(String(50))
+    term_name = Column(String(100))
+    term_description = Column(String(255))
+    link_course_info = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
+class UserCourse(Base):
+    __tablename__ = "user_courses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id = Column(String(100), nullable=False)
+    selected_at = Column(DateTime, default=datetime.utcnow)
+    
 class User(Base):
     __tablename__ = "users"
 

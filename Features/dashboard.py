@@ -161,7 +161,7 @@ def main(cookies):
         
         page = st.radio(
             "Navigation",
-            ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips"])
+            ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips", "Learning Suggestions"])
         
         if st.button("Logout", key="logout_button"):
             logout_user(cookies) # Pass cookies object
@@ -186,6 +186,9 @@ def main(cookies):
     elif page == "Calendar":
         from calendar_study import display_calendar
         display_calendar(user_id)
+    elif page == "Learning Suggestions":
+        from learning_suggestions import display_learning_suggestions
+        display_learning_suggestions(user_id)
 
 def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")

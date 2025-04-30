@@ -1,6 +1,7 @@
 # dashboard.py
 import streamlit as st
 import os
+from learning_tipps import display_learning_tips
 from datetime import datetime, timedelta
 from streamlit_cookies_manager import EncryptedCookieManager
 # Assuming api_connection and utils are correctly set up for Azure SQL

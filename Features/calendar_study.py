@@ -28,14 +28,12 @@ def display_calendar(user_id):
             if st.session_state.calendar_month < 1:
                 st.session_state.calendar_month = 12
                 st.session_state.calendar_year -= 1
-    
     with col3:
         if st.button("Next Month ▶"):
             st.session_state.calendar_month += 1
             if st.session_state.calendar_month > 12:
                 st.session_state.calendar_month = 1
                 st.session_state.calendar_year += 1
-    
     with col2:
         month_name = calendar.month_name[st.session_state.calendar_month]
         st.subheader(f"{month_name} {st.session_state.calendar_year}")
@@ -49,9 +47,77 @@ def display_calendar(user_id):
     for i, col in enumerate(cols):
         with col:
             st.markdown(f"<div style='text-align: center; font-weight: bold;'>{weekdays[i]}</div>", unsafe_allow_html=True)
+
+    # Add global CSS for hover effect - UPDATED VERSION
+    st.markdown("""
+    <style>
+    .day-cell {
+        background-color: #f5f5f5;
+        border-radius: 5px;
+        padding: 5px;
+        height: 80px;
+        position: relative;
+        overflow: hidden;
+    }
     
-    # Display calendar days with events
-    for week in cal:
+    .day-cell-events {
+        background-color: #e6f3ff;
+    }
+    
+    .day-cell-events:hover {
+        position: absolute;
+        z-index: 1000;
+        width: 250px;
+        height: auto;
+        min-height: 80px;
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: white !important;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    
+    .day-number {
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 3px;
+    }
+    
+    .event-mini {
+        font-size: 0.7em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 1px;
+        padding: 1px;
+        border-radius: 2px;
+    }
+    
+    .event-full {
+        display: none;
+        font-size: 0.8em;
+        margin-bottom: 3px;
+        padding: 3px;
+        border-radius: 3px;
+    }
+    
+    .day-cell-events:hover .event-mini {
+        display: none;
+    }
+    
+    .day-cell-events:hover .event-full {
+        display: block;
+    }
+    
+    .events-container {
+        max-height: 55px;
+        overflow: hidden;
+    }
+                
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Display calendar days with events - UPDATED VERSION
+    for week_idx, week in enumerate(cal):
         cols = st.columns(7)
         for i, day in enumerate(week):
             with cols[i]:
@@ -66,35 +132,36 @@ def display_calendar(user_id):
                     # Check if we have events for this day
                     day_events = [e for e in st.session_state.calendar_events if e['date'] == date_str]
                     
-                    # Style differently if there are events
+                    # Build the HTML for this day
+                    html = f'<div class="day-cell{" day-cell-events" if day_events else ""}">'
+                    html += f'<div class="day-number">{day}</div>'
+                    
+                    # Container for events with overflow control
                     if day_events:
-                        st.markdown(
-                            f"""
-                            <div style='background-color: #e6f3ff; border-radius: 5px; padding: 5px; height: 80px; overflow-y: auto;'>
-                                <div style='font-weight: bold; text-align: center;'>{day}</div>
-                                <hr style='margin: 2px;'>
-                            """, 
-                            unsafe_allow_html=True
-                        )
+                        html += '<div class="events-container">'
                         
+                        # Add mini event previews
                         for event in day_events:
-                            st.markdown(
-                                f"""<div style='font-size: 0.8em; margin-bottom: 2px; background-color: {event['color']}; 
-                                padding: 2px; border-radius: 3px;'>{event['time']} - {event['title']}</div>""", 
-                                unsafe_allow_html=True
-                            )
+                            html += f'<div class="event-mini" style="background-color: {event["color"]};">'
+                            html += f'{event["time"]} {event["title"][:10]}...'
+                            html += '</div>'
                         
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(
-                            f"""
-                            <div style='background-color: #f5f5f5; border-radius: 5px; padding: 5px; height: 80px;'>
-                                <div style='font-weight: bold; text-align: center;'>{day}</div>
-                            </div>
-                            """, 
-                            unsafe_allow_html=True
-                        )
-    
+                        html += '</div>'
+                        
+                        # Add full event details (hidden until hover)
+                        html += '<hr style="margin: 3px 0;">'
+                        for event in day_events:
+                            html += f'<div class="event-full" style="background-color: {event["color"]};">'
+                            html += f'<strong>{event["time"]}</strong> - {event["title"]} ({event["type"]})'
+                            html += '</div>'
+                    
+                    html += '</div>'
+                    
+                    # Render the HTML
+                    st.markdown(html, unsafe_allow_html=True)
+        # Close the week container
+        st.markdown("</div>", unsafe_allow_html=True)
+
     # Event management section
     st.subheader("Manage Events")
     
@@ -107,7 +174,7 @@ def display_calendar(user_id):
             event_time = st.time_input("Time", datetime.now().time())
             
             event_type = st.selectbox(
-                "Event Type", 
+                "Event Type",
                 ["Study Session", "Lecture", "Exam", "Assignment Due", "Group Meeting", "Other"]
             )
             
@@ -136,7 +203,6 @@ def display_calendar(user_id):
                 st.session_state.calendar_events.append(new_event)
                 st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')}")
                 st.rerun()
-    
     with tab2:
         if not st.session_state.calendar_events:
             st.info("No events scheduled yet.")
@@ -161,8 +227,8 @@ def display_calendar(user_id):
                         col1, col2 = st.columns([5, 1])
                         with col1:
                             st.markdown(
-                                f"""<div style='background-color: {event['color']}; padding: 10px; 
-                                border-radius: 5px; margin-bottom: 5px;'>
+                                f"""<div style='background-color: {event['color']}; padding: 10px;
+                                 border-radius: 5px; margin-bottom: 5px;'>
                                 <strong>{event['time']}</strong> - {event['title']} ({event['type']})
                                 </div>""", 
                                 unsafe_allow_html=True

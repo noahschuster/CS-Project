@@ -2,16 +2,18 @@ import streamlit as st
 import pandas as pd
 import datetime
 import calendar
-import sqlite3
 from datetime import datetime, timedelta
 import random
+from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
 
 def display_calendar(user_id):
     st.title("Study Calendar")
     
-    # Initialize session state for events if not already done
+    # Lade Ereignisse aus der Datenbank statt Demo-Events zu verwenden
     if 'calendar_events' not in st.session_state:
-        st.session_state.calendar_events = generate_demo_events()
+        # Lade Ereignisse aus der Datenbank
+        db_events = get_calendar_events(user_id)
+        st.session_state.calendar_events = db_events if db_events else []
     
     # Calendar navigation
     col1, col2, col3 = st.columns([2, 3, 2])
@@ -161,8 +163,7 @@ def display_calendar(user_id):
                     st.markdown(html, unsafe_allow_html=True)
         # Close the week container
         st.markdown("</div>", unsafe_allow_html=True)
-
-    # Event management section
+# Event management section
     st.subheader("Manage Events")
     
     tab1, tab2 = st.tabs(["Add Event", "View/Edit Events"])
@@ -200,9 +201,17 @@ def display_calendar(user_id):
                     'user_id': user_id
                 }
                 
-                st.session_state.calendar_events.append(new_event)
-                st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')}")
-                st.rerun()
+                # Speichere das Event in der Datenbank
+                event_id = save_calendar_event(user_id, new_event)
+                if event_id:
+                    # Füge ID zum Event hinzu und speichere es im Session State
+                    new_event['id'] = event_id
+                    st.session_state.calendar_events.append(new_event)
+                    st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')}")
+                    st.rerun()
+                else:
+                    st.error("Failed to save event to database.")
+    
     with tab2:
         if not st.session_state.calendar_events:
             st.info("No events scheduled yet.")
@@ -217,8 +226,8 @@ def display_calendar(user_id):
                 events_by_date[formatted_date].append(event)
             
             # Sort dates chronologically
-            sorted_dates = sorted(events_by_date.keys(), 
-                                 key=lambda x: datetime.strptime(x, "%A, %B %d, %Y"))
+            sorted_dates = sorted(events_by_date.keys(),
+                                  key=lambda x: datetime.strptime(x, "%A, %B %d, %Y"))
             
             # Display events by date
             for date in sorted_dates:
@@ -235,66 +244,13 @@ def display_calendar(user_id):
                             )
                         with col2:
                             if st.button("Delete", key=f"del_{date}_{i}"):
-                                st.session_state.calendar_events.remove(event)
-                                st.rerun()
-
-def generate_demo_events():
-    """Generate demo events for the calendar"""
-    events = []
-    
-    # Event types with their colors
-    event_types = [
-        {"type": "Study Session", "color": "#ffcccc"},
-        {"type": "Lecture", "color": "#ccffcc"},
-        {"type": "Exam", "color": "#ffaaaa"},
-        {"type": "Assignment Due", "color": "#ffffcc"},
-        {"type": "Group Meeting", "color": "#ccccff"}
-    ]
-    
-    # Course names for demo events
-    course_names = [
-        "Introduction to Programming",
-        "Data Structures and Algorithms",
-        "Machine Learning Fundamentals",
-        "Business Analytics",
-        "Marketing Research",
-        "Financial Accounting"
-    ]
-    
-    # Generate events for the current month and next month
-    today = datetime.now()
-    
-    # Add some events in the past
-    for _ in range(5):
-        past_date = today - timedelta(days=random.randint(1, 15))
-        event_type = random.choice(event_types)
-        course = random.choice(course_names)
-        
-        events.append({
-            'date': past_date.strftime("%Y-%m-%d"),
-            'title': f"{course}",
-            'time': f"{random.randint(8, 18):02d}:{random.choice(['00', '30'])}",
-            'type': event_type["type"],
-            'color': event_type["color"],
-            'user_id': 1  # Demo user ID
-        })
-    
-    # Add some events in the future
-    for _ in range(10):
-        future_date = today + timedelta(days=random.randint(0, 30))
-        event_type = random.choice(event_types)
-        course = random.choice(course_names)
-        
-        events.append({
-            'date': future_date.strftime("%Y-%m-%d"),
-            'title': f"{course}",
-            'time': f"{random.randint(8, 18):02d}:{random.choice(['00', '30'])}",
-            'type': event_type["type"],
-            'color': event_type["color"],
-            'user_id': 1  # Demo user ID
-        })
-    
-    return events
+                                # Lösche das Event aus der Datenbank
+                                if 'id' in event and delete_calendar_event(event['id']):
+                                    st.session_state.calendar_events.remove(event)
+                                    st.success(f"Event '{event['title']}' deleted.")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to delete event from database.")
 
 # Function to integrate with your database later
 def save_events_to_db(user_id, events):

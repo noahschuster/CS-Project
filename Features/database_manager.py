@@ -95,6 +95,7 @@ Base = declarative_base()
 
 def save_calendar_event(user_id, event_data):
     """Saves a calendar event to the database"""
+    print("save_calendar_event")
     session = SessionLocal()
     try:
         # Check if event type is a deadline type
@@ -278,37 +279,6 @@ def update_calendar_event(event_id, event_data):
     finally:
         session.close()
 
-def save_study_task(user_id, task_data):
-    """Speichert eine Lernaufgabe in der Datenbank"""
-    session = SessionLocal()
-    try:
-        # Konvertiere methods-Liste zu JSON-String
-        methods_json = json.dumps(task_data['methods'])
-        
-        new_task = StudyTask(
-            user_id=user_id,
-            course_id=task_data['course_id'],
-            date=task_data['date'],
-            start_time=task_data['start_time'],
-            end_time=task_data['end_time'],
-            topic=task_data['topic'],
-            methods=methods_json,
-            completed=False
-        )
-        
-        session.add(new_task)
-        session.commit()
-        session.refresh(new_task)
-        
-        print(f"Lernaufgabe gespeichert für Benutzer ID: {user_id}. Aufgaben-ID: {new_task.id}")
-        return new_task.id
-    except Exception as e:
-        session.rollback()
-        print(f"Fehler beim Speichern der Lernaufgabe: {e}")
-        return None
-    finally:
-        session.close()
-
 def get_study_tasks(user_id):
     """Holt alle Lernaufgaben eines Benutzers aus der Datenbank"""
     session = SessionLocal()
@@ -356,8 +326,6 @@ class StudyTask(Base):
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
-# Füge diese Funktionen zu database_manager.py hinzu
 def save_study_task(user_id, task_data):
     """Speichert eine Lernaufgabe in der Datenbank"""
     session = SessionLocal()
@@ -368,8 +336,8 @@ def save_study_task(user_id, task_data):
         new_task = StudyTask(
             user_id=user_id,
             course_id=task_data['course_id'],
-            course_title=task_data['course_title'],
-            course_code=task_data['course_code'],
+            course_title=task_data.get('course_title', ''),  # Mit get und Fallback-Wert
+            course_code=task_data.get('course_code', ''),    # Mit get und Fallback-Wert
             date=task_data['date'],
             start_time=task_data['start_time'],
             end_time=task_data['end_time'],
@@ -390,6 +358,7 @@ def save_study_task(user_id, task_data):
         return None
     finally:
         session.close()
+
 
 def get_study_tasks(user_id):
     """Holt alle Lernaufgaben eines Benutzers aus der Datenbank"""
@@ -576,6 +545,40 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     hashed_password_byte_enc = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_byte_enc, hashed_password_byte_enc)
 
+def update_study_task(task_id, task_data):
+    """Aktualisiert eine bestehende Lernaufgabe"""
+    session = SessionLocal()
+    try:
+        task = session.query(StudyTask).filter(StudyTask.id == task_id).first()
+        if task:
+            # Aktualisiere die Felder
+            if 'date' in task_data:
+                task.date = task_data['date']
+            if 'start_time' in task_data:
+                task.start_time = task_data['start_time']
+            if 'end_time' in task_data:
+                task.end_time = task_data['end_time']
+            if 'topic' in task_data:
+                task.topic = task_data['topic']
+            if 'methods' in task_data:
+                task.methods = json.dumps(task_data['methods'])
+            if 'completed' in task_data:
+                task.completed = task_data['completed']
+            
+            session.commit()
+            print(f"Lernaufgabe aktualisiert. Aufgaben-ID: {task_id}")
+            return True
+        
+        print(f"Lernaufgabe nicht gefunden für ID: {task_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Aktualisieren der Lernaufgabe: {e}")
+        return False
+    finally:
+        session.close()
+
+
 # --- Core Database Functions ---
 
 def add_user(username: str, password: str, email: str):
@@ -605,6 +608,61 @@ def add_user(username: str, password: str, email: str):
         return None
     finally:
         session.close()
+
+def update_study_task(task_id, update_data):
+    """Aktualisiert eine bestehende Lernaufgabe"""
+    session = SessionLocal()
+    try:
+        task = session.query(StudyTask).filter(StudyTask.id == task_id).first()
+        if task:
+            # Aktualisiere die Felder
+            if 'date' in update_data:
+                task.date = update_data['date']
+            if 'start_time' in update_data:
+                task.start_time = update_data['start_time']
+            if 'end_time' in update_data:
+                task.end_time = update_data['end_time']
+            if 'topic' in update_data:
+                task.topic = update_data['topic']
+            if 'methods' in update_data and isinstance(update_data['methods'], list):
+                task.methods = json.dumps(update_data['methods'])
+            if 'completed' in update_data:
+                task.completed = update_data['completed']
+            
+            session.commit()
+            print(f"Lernaufgabe aktualisiert. Aufgaben-ID: {task_id}")
+            return True
+        
+        print(f"Lernaufgabe nicht gefunden für ID: {task_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Aktualisieren der Lernaufgabe: {e}")
+        return False
+    finally:
+        session.close()
+
+
+def delete_study_task(task_id):
+    """Löscht eine Lernaufgabe aus der Datenbank"""
+    session = SessionLocal()
+    try:
+        task = session.query(StudyTask).filter(StudyTask.id == task_id).first()
+        if task:
+            session.delete(task)
+            session.commit()
+            print(f"Lernaufgabe erfolgreich gelöscht. Aufgaben-ID: {task_id}")
+            return True
+        
+        print(f"Lernaufgabe nicht gefunden für ID: {task_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Fehler beim Löschen der Lernaufgabe: {e}")
+        return False
+    finally:
+        session.close()
+
 
 def authenticate(username: str, password: str):
     """Authenticates a user by username and password."""

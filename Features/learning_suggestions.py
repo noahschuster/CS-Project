@@ -13,7 +13,9 @@ from database_manager import (
     get_learning_type_status,
     save_study_task,
     get_study_tasks,  # Stelle sicher, dass diese Zeile vorhanden ist
-    update_study_task_status
+    update_study_task_status,
+    update_study_task,  # Neue Funktion hinzufügen
+    delete_study_task   # Neue Funktion hinzufügen
 )
 
 def display_learning_suggestions(user_id):
@@ -61,6 +63,8 @@ def display_learning_suggestions(user_id):
             
             submit_button = st.form_submit_button("Lernplan generieren")
         
+        ###
+        # Ändere den Code im if-Block nach dem Generieren des Lernplans
         if submit_button and selected_courses:
             # Bestehende Kalendereinträge abrufen
             calendar_events = get_calendar_events(user_id)
@@ -76,16 +80,25 @@ def display_learning_suggestions(user_id):
             )
             
             if study_plan:
+                # Speichere den Lernplan in der Session State
+                st.session_state.study_plan = study_plan
+                
                 st.success(f"Lernplan für {len(selected_courses)} Kurse über {weeks} Wochen erstellt!")
                 
                 # Anzeigen des Lernplans
                 display_study_plan(study_plan)
-                
-                # Option zum Speichern im Kalender
-                if st.button("Lernplan im Kalender speichern"):
-                    save_study_plan_to_calendar(user_id, study_plan)
-                    st.success("Lernplan wurde im Kalender gespeichert!")
-                    st.rerun()
+
+        # Ändere den Code für den Speichern-Button
+        if st.button("Lernplan im Kalender speichern", key="save_calendar_button"):
+            print("button1")
+            # Prüfe, ob ein Lernplan in der Session State existiert
+            if 'study_plan' in st.session_state and st.session_state.study_plan:
+                save_study_plan_to_calendar(user_id, st.session_state.study_plan)
+                st.success("Lernplan wurde im Kalender gespeichert!")
+                st.rerun()
+            else:
+                st.error("Kein Lernplan zum Speichern vorhanden. Bitte generiere zuerst einen Lernplan.")
+
     
     with tab2:
         display_study_tasks(user_id)
@@ -231,24 +244,147 @@ def display_study_plan(study_plan):
             for method in session['content']['methods']:
                 st.write(f"- {method}")
 
-def save_study_plan_to_calendar(user_id, study_plan):
-    """Speichert den Lernplan im Kalender"""
-    for session in study_plan:
-        event_data = {
-            'title': f"Lernen: {session['course_code']}",
-            'date': session['date'],
-            'time': session['start_time'],
-            'type': "Study Session",
-            'color': "#ccffcc",  # Hellgrün
-            'user_id': user_id,
-            'description': f"Thema: {session['content']['topic']}\nMethoden: {', '.join(session['content']['methods'])}"
-        }
-        
-        # Event im Kalender speichern
-        save_calendar_event(user_id, event_data)
-        
-        # Auch in der Lernaufgaben-Tabelle speichern
-        save_study_task(user_id, session)
+def display_study_tasks(user_id):
+    """Zeigt die Lernaufgaben des Nutzers an und ermöglicht das Abhaken, Verschieben und Löschen"""
+    st.subheader("Meine Lernaufgaben")
+    
+    # Lade Aufgaben aus der Datenbank
+    user_tasks = get_study_tasks(user_id)
+    
+    if not user_tasks:
+        st.info("Du hast noch keine Lernaufgaben. Erstelle einen Lernplan, um loszulegen!")
+        return
+    
+    # Nach Datum sortieren und in vergangene/zukünftige aufteilen
+    today = datetime.now().date()
+    
+    upcoming_tasks = []
+    past_tasks = []
+    
+    for task in user_tasks:
+        task_date = datetime.strptime(task['date'], "%Y-%m-%d").date()
+        if task_date >= today:
+            upcoming_tasks.append(task)
+        else:
+            past_tasks.append(task)
+    
+    # Sortiere nach Datum und Zeit
+    upcoming_tasks.sort(key=lambda x: (x['date'], x['start_time']))
+    past_tasks.sort(key=lambda x: (x['date'], x['start_time']), reverse=True)
+    
+    # Zukünftige Aufgaben anzeigen
+    if upcoming_tasks:
+        st.write("### Anstehende Lernaufgaben")
+        for task in upcoming_tasks:
+            col1, col2, col3 = st.columns([4, 1, 1])
+            
+            with col1:
+                status = "✅" if task['completed'] else "⏳"
+                expander_label = f"{status} {task['date']} | {task['start_time']} - {task['end_time']} | {task['course_code']}"
+                
+                with st.expander(expander_label):
+                    st.write(f"**Kurs:** {task['course_title']}")
+                    st.write(f"**Thema:** {task['topic']}")
+                    st.write("**Empfohlene Lernmethoden:**")
+                    for method in task['methods']:
+                        st.write(f"- {method}")
+                    
+                    # Verschieben-Funktion innerhalb des Expanders
+                    st.write("---")
+                    st.write("**Termin verschieben:**")
+                    
+                    # Verfügbare Termine abrufen (freie Zeiten im Kalender)
+                    calendar_events = get_calendar_events(user_id)
+                    busy_slots = {}
+                    
+                    for event in calendar_events:
+                        date = event['date']
+                        time_parts = event['time'].split(':')
+                        hour = int(time_parts[0])
+                        
+                        if date not in busy_slots:
+                            busy_slots[date] = []
+                        
+                        # Blockiere 2 Stunden für jedes Event
+                        busy_slots[date].extend([hour, hour + 1])
+                    
+                    # Datumsauswahl für die Verschiebung
+                    new_date = st.date_input("Neues Datum", 
+                                            datetime.strptime(task['date'], "%Y-%m-%d").date(),
+                                            key=f"new_date_{task['id']}")
+                    
+                    # Verfügbare Zeitslots für das ausgewählte Datum
+                    date_str = new_date.strftime("%Y-%m-%d")
+                    work_hours = list(range(8, 20))  # 8:00 - 20:00
+                    
+                    # Freie Zeitslots finden
+                    available_hours = [h for h in work_hours[:-1] if
+                                      date_str not in busy_slots or
+                                      (h not in busy_slots.get(date_str, []) and
+                                       h+1 not in busy_slots.get(date_str, []))]
+                    
+                    # Formatiere die Stunden für die Anzeige
+                    time_options = [f"{h:02d}:00" for h in available_hours]
+                    
+                    # Wenn keine freien Slots verfügbar sind, alle Zeiten anzeigen
+                    if not time_options:
+                        time_options = [f"{h:02d}:00" for h in work_hours[:-1]]
+                    
+                    # Startzeit auswählen
+                    new_start_time = st.selectbox("Neue Startzeit", 
+                                                time_options,
+                                                index=time_options.index(task['start_time']) if task['start_time'] in time_options else 0,
+                                                key=f"new_start_{task['id']}")
+                    
+                    # Endzeit berechnen (2 Stunden nach Startzeit)
+                    start_hour = int(new_start_time.split(':')[0])
+                    new_end_time = f"{start_hour+2:02d}:00"
+                    
+                    st.write(f"Neue Endzeit: {new_end_time}")
+                    
+                    # Button zum Speichern der Änderungen
+                    if st.button("Termin verschieben", key=f"move_{task['id']}"):
+                        # Daten für die Aktualisierung vorbereiten
+                        update_data = {
+                            'date': date_str,
+                            'start_time': new_start_time,
+                            'end_time': new_end_time
+                        }
+                        
+                        # Aktualisiere die Aufgabe in der Datenbank
+                        if update_study_task(task['id'], update_data):
+                            st.success("Termin erfolgreich verschoben!")
+                            st.rerun()
+                        else:
+                            st.error("Fehler beim Verschieben des Termins.")
+            
+            with col2:
+                # Checkbox zum Abhaken
+                completed = st.checkbox("Erledigt", value=task['completed'], key=f"task_{task['id']}")
+                
+                if completed != task['completed']:
+                    # Status in der Datenbank aktualisieren
+                    if update_study_task_status(task['id'], completed):
+                        st.success("Status aktualisiert")
+                        st.rerun()
+            
+            with col3:
+                # Button zum Löschen
+                if st.button("Löschen", key=f"delete_{task['id']}"):
+                    # Lösche die Aufgabe aus der Datenbank
+                    if delete_study_task(task['id']):
+                        st.success(f"Aufgabe gelöscht")
+                        st.rerun()
+                    else:
+                        st.error("Fehler beim Löschen der Aufgabe")
+    
+    # Vergangene Aufgaben anzeigen
+    if past_tasks:
+        with st.expander("Vergangene Lernaufgaben"):
+            for task in past_tasks:
+                status = "✅" if task['completed'] else "❌"
+                st.write(f"{status} **{task['date']}** | {task['start_time']} - {task['end_time']} | {task['course_code']} - {task['topic']}")
+
 
 def save_study_task(user_id, session):
     """Speichert eine Lernaufgabe in der Datenbank"""
@@ -276,14 +412,11 @@ def save_study_task(user_id, session):
     st.session_state.study_tasks.append(task)
 
 def display_study_tasks(user_id):
-    """Zeigt die Lernaufgaben des Nutzers an und ermöglicht das Abhaken"""
+    """Zeigt die Lernaufgaben des Nutzers an und ermöglicht das Abhaken, Verschieben und Löschen"""
     st.subheader("Meine Lernaufgaben")
     
-    # In einer vollständigen Implementierung würden wir die Tasks aus der Datenbank laden
-    if 'study_tasks' not in st.session_state:
-        st.session_state.study_tasks = []
-    
-    user_tasks = [task for task in st.session_state.study_tasks if task['user_id'] == user_id]
+    # Lade Aufgaben aus der Datenbank
+    user_tasks = get_study_tasks(user_id)
     
     if not user_tasks:
         st.info("Du hast noch keine Lernaufgaben. Erstelle einen Lernplan, um loszulegen!")
@@ -302,11 +435,15 @@ def display_study_tasks(user_id):
         else:
             past_tasks.append(task)
     
+    # Sortiere nach Datum und Zeit
+    upcoming_tasks.sort(key=lambda x: (x['date'], x['start_time']))
+    past_tasks.sort(key=lambda x: (x['date'], x['start_time']), reverse=True)
+    
     # Zukünftige Aufgaben anzeigen
     if upcoming_tasks:
         st.write("### Anstehende Lernaufgaben")
-        for i, task in enumerate(upcoming_tasks):
-            col1, col2 = st.columns([5, 1])
+        for task in upcoming_tasks:
+            col1, col2, col3 = st.columns([4, 1, 1])
             
             with col1:
                 status = "✅" if task['completed'] else "⏳"
@@ -318,21 +455,95 @@ def display_study_tasks(user_id):
                     st.write("**Empfohlene Lernmethoden:**")
                     for method in task['methods']:
                         st.write(f"- {method}")
+                    
+                    # Verschieben-Funktion innerhalb des Expanders
+                    st.write("---")
+                    st.write("**Termin verschieben:**")
+                    
+                    # Verfügbare Termine abrufen (freie Zeiten im Kalender)
+                    calendar_events = get_calendar_events(user_id)
+                    busy_slots = {}
+                    
+                    for event in calendar_events:
+                        date = event['date']
+                        time_parts = event['time'].split(':')
+                        hour = int(time_parts[0])
+                        
+                        if date not in busy_slots:
+                            busy_slots[date] = []
+                        
+                        # Blockiere 2 Stunden für jedes Event
+                        busy_slots[date].extend([hour, hour + 1])
+                    
+                    # Datumsauswahl für die Verschiebung
+                    new_date = st.date_input("Neues Datum", 
+                                            datetime.strptime(task['date'], "%Y-%m-%d").date(),
+                                            key=f"new_date_{task['id']}")
+                    
+                    # Verfügbare Zeitslots für das ausgewählte Datum
+                    date_str = new_date.strftime("%Y-%m-%d")
+                    work_hours = list(range(8, 20))  # 8:00 - 20:00
+                    
+                    # Freie Zeitslots finden
+                    available_hours = [h for h in work_hours[:-1] if
+                                      date_str not in busy_slots or
+                                      (h not in busy_slots.get(date_str, []) and
+                                       h+1 not in busy_slots.get(date_str, []))]
+                    
+                    # Formatiere die Stunden für die Anzeige
+                    time_options = [f"{h:02d}:00" for h in available_hours]
+                    
+                    # Wenn keine freien Slots verfügbar sind, alle Zeiten anzeigen
+                    if not time_options:
+                        time_options = [f"{h:02d}:00" for h in work_hours[:-1]]
+                    
+                    # Startzeit auswählen
+                    new_start_time = st.selectbox("Neue Startzeit", 
+                                                time_options,
+                                                index=time_options.index(task['start_time']) if task['start_time'] in time_options else 0,
+                                                key=f"new_start_{task['id']}")
+                    
+                    # Endzeit berechnen (2 Stunden nach Startzeit)
+                    start_hour = int(new_start_time.split(':')[0])
+                    new_end_time = f"{start_hour+2:02d}:00"
+                    
+                    st.write(f"Neue Endzeit: {new_end_time}")
+                    
+                    # Button zum Speichern der Änderungen
+                    if st.button("Termin verschieben", key=f"move_{task['id']}"):
+                        # Daten für die Aktualisierung vorbereiten
+                        update_data = {
+                            'date': date_str,
+                            'start_time': new_start_time,
+                            'end_time': new_end_time
+                        }
+                        
+                        # Aktualisiere die Aufgabe in der Datenbank
+                        if update_study_task(task['id'], update_data):
+                            st.success("Termin erfolgreich verschoben!")
+                            st.rerun()
+                        else:
+                            st.error("Fehler beim Verschieben des Termins.")
             
             with col2:
                 # Checkbox zum Abhaken
                 completed = st.checkbox("Erledigt", value=task['completed'], key=f"task_{task['id']}")
                 
                 if completed != task['completed']:
-                    # Status
-                    # Status aktualisieren
-                    st.session_state.study_tasks[i]['completed'] = completed
-                    
-                    # In einer vollständigen Implementierung würden wir hier die Datenbank aktualisieren
-                    # update_study_task_status(task['id'], completed)
-                    
-                    # Seite neu laden, um die Änderung zu zeigen
-                    st.rerun()
+                    # Status in der Datenbank aktualisieren
+                    if update_study_task_status(task['id'], completed):
+                        st.success("Status aktualisiert")
+                        st.rerun()
+            
+            with col3:
+                # Button zum Löschen
+                if st.button("Löschen", key=f"delete_{task['id']}"):
+                    # Lösche die Aufgabe aus der Datenbank
+                    if delete_study_task(task['id']):
+                        st.success(f"Aufgabe gelöscht")
+                        st.rerun()
+                    else:
+                        st.error("Fehler beim Löschen der Aufgabe")
     
     # Vergangene Aufgaben anzeigen
     if past_tasks:
@@ -341,13 +552,6 @@ def display_study_tasks(user_id):
                 status = "✅" if task['completed'] else "❌"
                 st.write(f"{status} **{task['date']}** | {task['start_time']} - {task['end_time']} | {task['course_code']} - {task['topic']}")
 
-# Diese Funktion würde in einer vollständigen Implementierung den Status in der Datenbank aktualisieren
-def update_study_task_status(task_id, completed):
-    """Aktualisiert den Status einer Lernaufgabe in der Datenbank"""
-    # Datenbankimplementierung hier
-    pass
-
-# Füge diese Funktion zu learning_suggestions.py hinzu
 
 def get_course_content(course_code):
     """
@@ -567,33 +771,50 @@ def display_study_plan(study_plan):
 
 def save_study_plan_to_calendar(user_id, study_plan):
     """Speichert den Lernplan im Kalender und als Lernaufgaben"""
+    success_count = 0
+    print("save_study_plan_to_calendar")
+    
     for session in study_plan:
-        # Speichere im Kalender
-        event_data = {
-            'title': f"Lernen: {session['course_code']}",
-            'date': session['date'],
-            'time': session['start_time'],
-            'type': "Study Session",
-            'color': "#ccffcc",  # Hellgrün
-            'user_id': user_id
-        }
-        
-        # Event im Kalender speichern
-        save_calendar_event(user_id, event_data)
-        
-        # Auch als Lernaufgabe speichern
-        task_data = {
-            'course_id': session['course_id'],
-            'course_title': session['course_title'],
-            'course_code': session['course_code'],
-            'date': session['date'],
-            'start_time': session['start_time'],
-            'end_time': session['end_time'],
-            'topic': session['content']['topic'],
-            'methods': session['content']['methods']
-        }
-        
-        save_study_task(user_id, task_data)
+        try:
+            # Speichere im Kalender
+            event_data = {
+                'title': f"Lernen: {session['course_code']}",
+                'date': session['date'],
+                'time': session['start_time'],
+                'type': "Study Session",
+                'color': "#ccffcc",  # Hellgrün
+                'user_id': user_id
+            }
+            
+            # Event im Kalender speichern
+            event_id = save_calendar_event(user_id, event_data)
+            success_count += 1
+            
+            # Versuche, auch als Lernaufgabe zu speichern (optional)
+            try:
+                task_data = {
+                    'course_id': session['course_id'],
+                    'course_title': session['course_title'],
+                    'course_code': session['course_code'],
+                    'date': session['date'],
+                    'start_time': session['start_time'],
+                    'end_time': session['end_time'],
+                    'topic': session['content']['topic'],
+                    'methods': session['content']['methods']
+                }
+                
+                # Hier die korrekte Datenbankfunktion aus database_manager verwenden
+                from database_manager import save_study_task as db_save_study_task
+                task_id = db_save_study_task(user_id, task_data)
+            except Exception as e:
+                print(f"Fehler beim Speichern der Lernaufgabe: {e}")
+                # Ignoriere Fehler beim Speichern der Lernaufgaben, 
+                # da die Kalendereinträge bereits erfolgreich gespeichert wurden
+        except Exception as e:
+            print(f"Fehler beim Speichern des Kalendereintrags: {e}")
+    
+    return success_count > 0
+
 
 def display_study_tasks(user_id):
     """Zeigt die Lernaufgaben des Nutzers an und ermöglicht das Abhaken"""

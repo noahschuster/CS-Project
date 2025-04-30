@@ -30,6 +30,7 @@ def check_login():
 def logout_user(cookies):
     """Handles user logout: deletes token, cookie, and clears session state."""
     print("Logout initiated.") # Debug
+    
     # 1. Get session token from cookie
     session_token = cookies.get(SESSION_COOKIE_NAME)
     
@@ -43,14 +44,14 @@ def logout_user(cookies):
         print("No session cookie found during logout.") # Debug
 
     # 3. Delete the cookie from the browser
-    if session_token: # Only try deleting if we think one existed
-         # Use dictionary-style deletion
-         try:
-             del cookies[SESSION_COOKIE_NAME]
-             cookies.save() # Save immediately
-             print("Session cookie deleted from browser.") # Debug
-         except KeyError:
-             print(f"Cookie {SESSION_COOKIE_NAME} not found for deletion, might have already been removed.") # Debug
+    if session_token: # Only try deleting if we think one existed 
+        # Use dictionary-style deletion 
+        try: 
+            del cookies[SESSION_COOKIE_NAME]
+            cookies.save() # Save immediately
+            print("Session cookie deleted from browser.") # Debug
+        except KeyError:
+            print(f"Cookie {SESSION_COOKIE_NAME} not found for deletion, might have already been removed.") # Debug
 
     # 4. Clear Streamlit session state
     print("Clearing Streamlit session state.") # Debug
@@ -72,26 +73,50 @@ def logout_user(cookies):
     st.session_state["username"] = None
     st.session_state["user_id"] = None
     st.session_state["login_attempted"] = False # Reset login attempt flag
-
+    st.session_state["learning_type_completed"] = False # Reset learning type flag
     print("Logout process complete.") # Debug
-    # No explicit rerun needed here, main.py's flow will handle showing login page
-    # However, adding it ensures immediate transition if called mid-script
-    st.rerun()
+    
+    # 7. Force a complete browser reload using JavaScript
+    import streamlit.components.v1 as components
+    
+    # Simple JavaScript to reload the page
+    components.html(
+        """
+        <script>
+            // Force a complete page reload
+            window.parent.location.reload();
+        </script>
+        <p>Logging out...</p>
+        """,
+        height=50
+    )
+    
+    # Stop execution to prevent any further code from running
+    st.stop()
+
 
 # --- Main Dashboard UI --- 
 def main(cookies):
     # Ensure cookie manager is ready (important if dashboard could be entry point)
     if not cookies.ready():
         st.stop()
+    
     user_id, username = check_login()
+    
+    # Check if learning type is completed - redirect if not
+    if not st.session_state.get("learning_type_completed", False):
+        # Redirect to learning type page
+        from learning_type import display_learning_type
+        display_learning_type(user_id)
+        return
+    
     with st.sidebar:
         st.title("StudyBuddy")
         st.write(f"Welcome, {username}!")
         
         page = st.radio(
-    "Navigation",
-    ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips"]
-)
+            "Navigation",
+            ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips"])
         
         if st.button("Logout", key="logout_button"):
             logout_user(cookies) # Pass cookies object
@@ -144,7 +169,7 @@ def display_dashboard(user_id, username):
             st.error(f"Error fetching sessions: {e}")
             session_count = "Error"
             total_hours = "Error"
-
+        
         st.metric("Courses Enrolled", course_count)
         st.metric("Study Sessions", session_count)
         st.metric("Total Study Hours", f"{total_hours:.1f}" if isinstance(total_hours, (int, float)) else total_hours)
@@ -175,6 +200,4 @@ def display_dashboard(user_id, username):
         st.subheader("Upcoming Deadlines")
         st.info("This feature is coming soon. You'll be able to track your course deadlines here.")
 
-# Note: Removed the old sqlite3 logout_user function entirely.
 # The main() function is the entry point when called from main.py
-

@@ -5,8 +5,7 @@ import streamlit as st
 st.set_page_config(
     page_title="StudyBuddy",
     page_icon="📚",
-    layout="centered"
-)
+    layout="centered")
 
 import os
 import dashboard # Import the dashboard module
@@ -22,7 +21,9 @@ from database_manager import (
     validate_auth_token, # For potential email links
     generate_session_token, # For persistent cookie sessions
     validate_session_token, # For persistent cookie sessions
-    init_db # To ensure tables exist
+    init_db, # To ensure tables exist
+    SessionLocal,
+    User
 )
 
 # --- Configuration ---
@@ -33,7 +34,6 @@ SESSION_COOKIE_NAME = "studybuddy_session_token"
 SESSION_EXPIRY_DAYS = 30
 
 # --- Initialization ---
-
 # Initialize Database (optional here, could be run once separately)
 # Consider adding error handling if DB connection fails
 try:
@@ -49,6 +49,7 @@ cookies = EncryptedCookieManager(
     prefix="sb/sess/",
     password=COOKIE_PASSWORD,
 )
+
 if not cookies.ready():
     # Wait for cookie manager to be ready before processing anything else
     # This st.stop() is fine here as page config is already done.
@@ -61,7 +62,8 @@ def initialize_session_state():
         'username': None,
         'user_id': None,
         'session_id': None, # ID from user_sessions table (optional usage)
-        'login_attempted': False # Flag to prevent multiple login attempts per run
+        'login_attempted': False, # Flag to prevent multiple login attempts per run
+        'learning_type_completed': False # New flag for learning type completion
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -83,6 +85,18 @@ def attempt_login_from_cookie():
                 st.session_state.logged_in = True
                 st.session_state.user_id = user_id
                 st.session_state.username = username
+                
+                # Check if learning type is completed
+                session = SessionLocal()
+                try:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    st.session_state.learning_type_completed = bool(user.learning_type_completed)
+                except Exception as e:
+                    print(f"Error checking learning_type_completed: {e}")
+                    st.session_state.learning_type_completed = False
+                finally:
+                    session.close()
+                
                 # Optionally log a new session entry or find the last one?
                 # For simplicity, we just restore the state.
                 # st.session_state.session_id = log_session(user_id) # Creates new session log on every cookie validation?
@@ -111,6 +125,17 @@ def attempt_login_from_url_token():
                 st.session_state.username = username
                 st.session_state.session_id = log_session(user_id) # Log session for URL token login
                 
+                # Check if learning type is completed
+                session = SessionLocal()
+                try:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    st.session_state.learning_type_completed = bool(user.learning_type_completed)
+                except Exception as e:
+                    print(f"Error checking learning_type_completed: {e}")
+                    st.session_state.learning_type_completed = False
+                finally:
+                    session.close()
+                
                 # --- Set Persistent Session Cookie ---
                 persistent_token = generate_session_token(user_id, days_valid=SESSION_EXPIRY_DAYS)
                 if persistent_token:
@@ -132,13 +157,13 @@ def attempt_login_from_url_token():
                 print("URL auth token invalid or expired.") # Debug
                 # Invalid token, remove from URL and show error
                 try:
-                   st.query_params["auth_token"] = "" # Clear the specific param
+                    st.query_params["auth_token"] = "" # Clear the specific param
                 except Exception as e:
                     print(f"Error clearing query params: {e}")
                 st.error("Invalid or expired authentication link.")
                 # Proceed to show login page
-        else:
-             print("No URL auth token found.") # Debug
+        else: 
+            print("No URL auth token found.") # Debug
 
 def show_login_page():
     """Displays the login and sign-up form."""
@@ -168,6 +193,17 @@ def show_login_page():
                     st.session_state.user_id = user_id
                     st.session_state.session_id = log_session(user_id) # Log session for password login
                     
+                    # Check if learning type is completed
+                    session = SessionLocal()
+                    try:
+                        user = session.query(User).filter(User.id == user_id).first()
+                        st.session_state.learning_type_completed = bool(user.learning_type_completed)
+                    except Exception as e:
+                        print(f"Error checking learning_type_completed: {e}")
+                        st.session_state.learning_type_completed = False
+                    finally:
+                        session.close()
+                    
                     # --- Set Persistent Session Cookie ---
                     session_token = generate_session_token(user_id, days_valid=SESSION_EXPIRY_DAYS)
                     if session_token:
@@ -177,7 +213,7 @@ def show_login_page():
                         print("Persistent session cookie set after password login.") # Debug
                     else:
                         st.warning("Could not generate persistent session token after login.")
-                        
+                    
                     # Rerun to switch to the dashboard view
                     st.rerun()
                 else:
@@ -186,9 +222,9 @@ def show_login_page():
             else:
                 st.warning("Please enter both username and password")
                 st.session_state.login_attempted = False # Allow retry if fields were empty
-        elif not login_button:
-             st.session_state.login_attempted = False # Reset flag if button not pressed
-    
+        elif not login_button: 
+            st.session_state.login_attempted = False # Reset flag if button not pressed
+
     with tab2:
         st.header("Create an account")
         

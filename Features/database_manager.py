@@ -13,6 +13,43 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 # Load environment variables from .env file
 load_dotenv()
 
+# Add these new functions to database_manager.py
+
+def get_learning_type_status(user_id: int):
+    """Gets the user's learning type and completion status."""
+    session = SessionLocal()
+    try:
+        user = session.query(User).filter(User.id == user_id).first()
+        if user:
+            return user.learning_type, bool(user.learning_type_completed)
+        return None, False
+    except Exception as e:
+        print(f"Error getting learning type status: {e}")
+        return None, False
+    finally:
+        session.close()
+
+def update_learning_type(user_id: int, learning_type: str):
+    """Updates the user's learning type and marks it as completed."""
+    session = SessionLocal()
+    try:
+        user = session.query(User).filter(User.id == user_id).first()
+        if user:
+            user.learning_type = learning_type
+            user.learning_type_completed = 1
+            session.commit()
+            print(f"Learning type updated for user ID: {user_id}")
+            return True
+        print(f"User not found for ID: {user_id}")
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error updating learning type: {e}")
+        return False
+    finally:
+        session.close()
+
+
 # --- Database Connection Configuration ---
 def get_db_engine():
     """Creates and returns a SQLAlchemy engine for Azure SQL Database."""
@@ -63,6 +100,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     learning_type = Column(String(50), nullable=True) # Kept from original schema
+    learning_type_completed = Column(Integer, default=0)  
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class UserSession(Base):

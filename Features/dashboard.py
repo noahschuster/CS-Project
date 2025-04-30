@@ -89,10 +89,9 @@ def main(cookies):
         st.write(f"Welcome, {username}!")
         
         page = st.radio(
-            "Navigation",
-            ["Dashboard", "Courses", "Learning Type", "Study Sessions", "Learning Tips"],
-            key="nav_radio" # Add a key for stability
-        )
+    "Navigation",
+    ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips"]
+)
         
         if st.button("Logout", key="logout_button"):
             logout_user(cookies) # Pass cookies object
@@ -114,6 +113,9 @@ def main(cookies):
     elif page == "Learning Tips":
         from learning_tipps import display_learning_tips
         display_learning_tips(user_id)
+    elif page == "Calendar":
+        from calendar_study import display_calendar
+        display_calendar(user_id)
 
 def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")

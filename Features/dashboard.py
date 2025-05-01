@@ -1,124 +1,128 @@
 # dashboard.py
-import streamlit as st
 import os
+import streamlit as st
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 from streamlit_cookies_manager import EncryptedCookieManager
-# Assuming api_connection and utils are correctly set up for Azure SQL
-import api_connection 
-from utils import get_user_sessions, get_user_learning_type
-# Import the specific function needed for logout from database_manager
-from database_manager import delete_session_token
+from functools import lru_cache
+import pandas as pd
 
-# --- Configuration (should match main.py) ---
-# IMPORTANT: Use environment variables or a shared config module in a real app
-COOKIE_PASSWORD = os.environ.get("COOKIE_PASSWORD", "default_insecure_password_change_me_12345")
+# Import specific functions to avoid unnecessarily importing entire modules
+from api_connection import get_user_courses
+from utils import get_user_sessions, get_user_learning_type
+from database_manager import delete_session_token, get_calendar_events
+
+# Constants
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
-# --- Helper Functions ---
+# Cache functions for performance
+@lru_cache(maxsize=32)
+def get_cached_user_learning_type(user_id):
+    """Cached version of get_user_learning_type to reduce DB calls"""
+    return get_user_learning_type(user_id)
+
+@lru_cache(maxsize=32)
+def get_cached_user_courses(user_id):
+    """Cached version of get_user_courses to reduce DB calls"""
+    return get_user_courses(user_id)
+
+@lru_cache(maxsize=32)
+def get_cached_calendar_events(user_id):
+    """Cached version of get_calendar_events to reduce DB calls"""
+    return get_calendar_events(user_id)
+
 def check_login():
-    """Ensures the user is logged in via session_state."""
+    """Verifies user login status"""
     if not st.session_state.get("logged_in", False):
         st.warning("Please log in to access the dashboard.")
-        # Redirect to login or stop execution if not logged in
-        # Since this is called from main.py after checks, 
-        # this might indicate an unexpected state.
-        st.stop() 
+        st.stop()
     return st.session_state.get("user_id"), st.session_state.get("username")
 
 def logout_user(cookies):
-    """Handles user logout: deletes token, cookie, and clears session state."""
-    print("Logout initiated.") # Debug
-    
-    # 1. Get session token from cookie
+    """Handles user logout process"""
+    # Get session token from cookie
     session_token = cookies.get(SESSION_COOKIE_NAME)
     
-    # 2. Delete token from database if it exists
+    # Delete token from database if exists
     if session_token:
-        print(f"Deleting session token {session_token[:8]}... from DB.") # Debug
-        deleted_from_db = delete_session_token(session_token)
-        if not deleted_from_db:
-            print(f"Warning: Session token {session_token[:8]}... not found or error during DB deletion.")
-    else:
-        print("No session cookie found during logout.") # Debug
-
-    # 3. Delete the cookie from the browser
-    if session_token: # Only try deleting if we think one existed 
-        # Use dictionary-style deletion 
-        try: 
+        delete_session_token(session_token)
+    
+    # Delete the cookie from browser
+    if session_token:
+        try:
             del cookies[SESSION_COOKIE_NAME]
-            cookies.save() # Save immediately
-            print("Session cookie deleted from browser.") # Debug
+            cookies.save()
         except KeyError:
-            print(f"Cookie {SESSION_COOKIE_NAME} not found for deletion, might have already been removed.") # Debug
+            pass  # Cookie may already be removed
 
-    # 4. Clear Streamlit session state
-    print("Clearing Streamlit session state.") # Debug
-    # Store keys to delete, then delete to avoid modifying during iteration
-    keys_to_delete = list(st.session_state.keys())
-    for key in keys_to_delete:
+    # Clear Streamlit session state
+    for key in list(st.session_state.keys()):
         del st.session_state[key]
     
-    # 5. Clear URL parameters (optional but good practice)
+    # Reset minimal session state
+    st.session_state.update({
+        "logged_in": False,
+        "username": None,
+        "user_id": None,
+        "login_attempted": False,
+        "learning_type_completed": False
+    })
+    
+    # Clear URL parameters
     try:
         st.query_params.clear()
-        print("Query parameters cleared.") # Debug
-    except Exception as e:
-        print(f"Error clearing query params during logout: {e}")
-
-    # 6. Re-initialize minimal session state for login page
-    # This prevents errors if parts of the login page rely on these keys existing
-    st.session_state["logged_in"] = False
-    st.session_state["username"] = None
-    st.session_state["user_id"] = None
-    st.session_state["login_attempted"] = False # Reset login attempt flag
-    st.session_state["learning_type_completed"] = False # Reset learning type flag
-    print("Logout process complete.") # Debug
+    except Exception:
+        pass
     
-    # 7. Force a complete browser reload using JavaScript
-    import streamlit.components.v1 as components
-    
-    # Simple JavaScript to reload the page
+    # Force page reload
     components.html(
         """
-        <script>
-            // Force a complete page reload
-            window.parent.location.reload();
-        </script>
+        <script>window.parent.location.reload();</script>
         <p>Logging out...</p>
         """,
         height=50
     )
     
-    # Stop execution to prevent any further code from running
     st.stop()
 
 def display_upcoming_deadlines(user_id):
-    """Display upcoming deadlines on the dashboard."""
-    from database_manager import get_calendar_events
-    
+    """Display upcoming deadlines with efficient data handling"""
     # Get today's date
     today = datetime.now().date()
     
-    # Get events from database
-    events = get_calendar_events(user_id)
+    # Get events from database (cached)
+    events = get_cached_calendar_events(user_id)
     
-    # Filter deadlines - using is_deadline flag from database
+    # Define deadline types
     deadline_types = ["Assignment Due", "Exam", "Project Due"]
-    upcoming_deadlines = [
-        event for event in events
-        if (event.get('is_deadline', False) or 
-            event.get('type') in deadline_types) and
-           today <= datetime.strptime(event['date'], "%Y-%m-%d").date() <= today + timedelta(days=14)
-    ]
+    
+    # Filter and sort deadlines in one pass
+    upcoming_deadlines = []
+    
+    for event in events:
+        # Check if it's a deadline
+        if not (event.get('is_deadline', False) or event.get('type') in deadline_types):
+            continue
+            
+        # Parse date once
+        try:
+            deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
+            
+            # Check date range
+            if today <= deadline_date <= today + timedelta(days=14):
+                # Add days_left calculation here to avoid recomputing later
+                event['days_left'] = (deadline_date - today).days
+                upcoming_deadlines.append(event)
+        except (ValueError, TypeError):
+            continue  # Skip invalid dates
     
     # Sort by date
-    upcoming_deadlines.sort(key=lambda e: datetime.strptime(e['date'], "%Y-%m-%d"))
+    upcoming_deadlines.sort(key=lambda e: e.get('days_left', 14))
     
     # Display deadlines
     if upcoming_deadlines:
         for deadline in upcoming_deadlines:
-            deadline_date = datetime.strptime(deadline['date'], "%Y-%m-%d").date()
-            days_left = (deadline_date - today).days
+            days_left = deadline['days_left']
             
             # Format days left text
             if days_left == 0:
@@ -139,89 +143,48 @@ def display_upcoming_deadlines(user_id):
     else:
         st.info("No upcoming deadlines in the next 14 days! 🎉")
 
-
-# --- Main Dashboard UI --- 
-def main(cookies):
-    # Ensure cookie manager is ready (important if dashboard could be entry point)
-    if not cookies.ready():
-        st.stop()
-    
-    user_id, username = check_login()
-    
-    # Check if learning type is completed - redirect if not
-    if not st.session_state.get("learning_type_completed", False):
-        # Redirect to learning type page
-        from learning_type import display_learning_type
-        display_learning_type(user_id)
-        return
-    
-    with st.sidebar:
-        st.title("StudyBuddy")
-        st.write(f"Welcome, {username}!")
-        
-        page = st.radio(
-            "Navigation",
-            ["Dashboard", "Calendar", "Courses", "Learning Type", "Study Sessions", "Learning Tips", "Learning Suggestions"])
-        
-        if st.button("Logout", key="logout_button"):
-            logout_user(cookies) # Pass cookies object
-            # logout_user now handles rerun, so no need for state changes here
-    
-    # Page Routing (ensure imports are within functions or conditional)
-    if page == "Dashboard":
-        display_dashboard(user_id, username)
-    elif page == "Courses":
-        # Lazy import to avoid circular dependencies or loading unused code
-        from courses import display_courses 
-        display_courses(user_id)
-    elif page == "Learning Type":
-        from learning_type import display_learning_type
-        display_learning_type(user_id)
-    elif page == "Study Sessions":
-        from study_sessions import display_study_sessions
-        display_study_sessions(user_id)
-    elif page == "Learning Tips":
-        from learning_tipps import display_learning_tips
-        display_learning_tips(user_id)
-    elif page == "Calendar":
-        from calendar_study import display_calendar
-        display_calendar(user_id)
-    elif page == "Learning Suggestions":
-        from learning_suggestions import display_learning_suggestions
-        display_learning_suggestions(user_id)
-
 def display_dashboard(user_id, username):
+    """Main dashboard display with optimized data fetching"""
     st.title("StudyBuddy Dashboard")
     st.subheader("Your Learning Journey")
 
-    # Assuming get_user_learning_type and get_user_sessions use the correct DB connection
-    learning_type = get_user_learning_type(user_id)
+    # Get user data with caching
+    learning_type = get_cached_user_learning_type(user_id)
     
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Quick Stats")
         
+        # Fetch course data
         try:
-            # Assuming api_connection uses the correct DB connection
-            user_courses = api_connection.get_user_courses(user_id)
+            user_courses = get_cached_user_courses(user_id)
             course_count = len(user_courses) if user_courses else 0
         except Exception as e:
-            st.error(f"Error fetching courses: {e}")
+            st.error(f"Error fetching courses: {str(e)}")
             course_count = "Error"
         
+        # Fetch session data once
         try:
             sessions_df = get_user_sessions(user_id)
             session_count = len(sessions_df)
-            total_hours = sessions_df["duration_hours"].sum() if not sessions_df.empty else 0
+            
+            # Calculate total hours efficiently
+            if not sessions_df.empty and 'duration_hours' in sessions_df.columns:
+                total_hours = sessions_df["duration_hours"].sum()
+            else:
+                total_hours = 0
         except Exception as e:
-            st.error(f"Error fetching sessions: {e}")
+            st.error(f"Error fetching sessions: {str(e)}")
             session_count = "Error"
             total_hours = "Error"
+            sessions_df = pd.DataFrame()  # Empty dataframe for safe access later
         
+        # Display metrics
         st.metric("Courses Enrolled", course_count)
         st.metric("Study Sessions", session_count)
         st.metric("Total Study Hours", f"{total_hours:.1f}" if isinstance(total_hours, (int, float)) else total_hours)
         
+        # Display learning profile
         st.subheader("Your Learning Profile")
         if learning_type:
             st.info(f"Your identified learning type: {learning_type}")
@@ -232,20 +195,63 @@ def display_dashboard(user_id, username):
     with col2:
         st.subheader("Recent Activity")
         
-        if session_count != "Error" and not sessions_df.empty:
+        # Process session data efficiently
+        if isinstance(session_count, int) and session_count > 0 and not sessions_df.empty:
+            # Get only the needed columns and rows
             recent_sessions = sessions_df.head(5)
+            
             for _, session in recent_sessions.iterrows():
-                # Ensure columns exist and format nicely
-                login_time_str = session.get("login_time", "N/A")
-                if isinstance(login_time_str, datetime):
-                    login_time_str = login_time_str.strftime("%Y-%m-%d %H:%M")
+                login_time = session.get("login_time", "N/A")
+                login_time_str = login_time.strftime("%Y-%m-%d %H:%M") if isinstance(login_time, datetime) else str(login_time)
                 duration = session.get("duration_hours", 0)
                 st.write(f"📚 Study session on {login_time_str} - Duration: {duration:.1f} hours")
         elif session_count == 0:
             st.write("No recent activity recorded.")
-        # Error message handled by the try-except block above
         
         st.subheader("Upcoming Deadlines")
         display_upcoming_deadlines(user_id)
 
-# The main() function is the entry point when called from main.py
+def main(cookies):
+    """Entry point for dashboard"""
+    # Only check cookie readiness once
+    if not cookies.ready():
+        st.stop()
+    
+    user_id, username = check_login()
+    
+    # Check if learning type is completed - redirect if not
+    if not st.session_state.get("learning_type_completed", False):
+        # Import only when needed
+        from learning_type import display_learning_type
+        display_learning_type(user_id)
+        return
+    
+    # Create sidebar
+    with st.sidebar:
+        st.title("StudyBuddy")
+        st.write(f"Welcome, {username}!")
+        
+        # Navigation options
+        pages = {
+            "Dashboard": display_dashboard,
+            "Calendar": "calendar_study.display_calendar",
+            "Courses": "courses.display_courses",
+            "Learning Type": "learning_type.display_learning_type",
+            "Study Sessions": "study_sessions.display_study_sessions",
+            "Learning Tips": "learning_tipps.display_learning_tips",
+            "Learning Suggestions": "learning_suggestions.display_learning_suggestions"
+        }
+        
+        page = st.radio("Navigation", list(pages.keys()))
+        
+        if st.button("Logout", key="logout_button"):
+            logout_user(cookies)
+    
+    # Load page dynamically - only import the module when needed
+    if page == "Dashboard":
+        display_dashboard(user_id, username)
+    else:
+        # Dynamic import to avoid circular dependencies and minimize loading time
+        module_name, function_name = pages[page].split(".")
+        module = __import__(module_name)
+        getattr(module, function_name)(user_id)

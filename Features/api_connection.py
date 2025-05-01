@@ -35,6 +35,47 @@ def fetch_current_term():
 def fetch_courses_for_term(term_id):
     return api_request(f"/eventapi/Events/byTerm/{term_id}")
 
+def get_user_courses(user_id):
+    """
+    Get courses a specific user is enrolled in.
+    
+    Args:
+        user_id (int): The user ID to fetch courses for
+        
+    Returns:
+        list: List of course information dictionaries for the user
+    """
+    session = SessionLocal()
+    try:
+        # Query courses joined with user_courses to get only user's selected courses
+        user_courses = session.query(
+            Course
+        ).join(
+            UserCourse, Course.course_id == UserCourse.course_id
+        ).filter(
+            UserCourse.user_id == user_id
+        ).all()
+        
+        # Convert to list of dictionaries
+        courses_list = []
+        for course in user_courses:
+            courses_list.append({
+                'course_id': course.course_id,
+                'meeting_code': course.meeting_code,
+                'title': course.title,
+                'description': course.description,
+                'language_id': course.language_id,
+                'term_name': course.term_name,
+                'link_course_info': course.link_course_info
+            })
+        
+        return courses_list
+    except Exception as e:
+        st.error(f"Error fetching user courses: {str(e)}")
+        return []
+    finally:
+        session.close()
+
 def fetch_and_store_courses():
     status = st.empty()
     status.info("Fetching course data from HSG API...")

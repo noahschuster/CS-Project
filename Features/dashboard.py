@@ -15,18 +15,18 @@ from database_manager import delete_session_token, get_calendar_events
 # Constants
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
-# Cache functions for performance
-@lru_cache(maxsize=32)
+# Cache functions for performance - updating to use st.cache_data instead of lru_cache
+@st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_learning_type(user_id):
     """Cached version of get_user_learning_type to reduce DB calls"""
     return get_user_learning_type(user_id)
 
-@lru_cache(maxsize=32)
+@st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_courses(user_id):
     """Cached version of get_user_courses to reduce DB calls"""
     return get_user_courses(user_id)
 
-@lru_cache(maxsize=32)
+@st.cache_data(ttl=300, max_entries=32)
 def get_cached_calendar_events(user_id):
     """Cached version of get_calendar_events to reduce DB calls"""
     return get_calendar_events(user_id)

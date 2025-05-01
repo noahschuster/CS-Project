@@ -47,7 +47,8 @@ def _display_learning_plan_generator(user_id: str, learning_type: str) -> None:
     # Get user courses
     user_courses = get_user_courses(user_id)
     
-    if user_courses.empty:
+    # Fix: Check if list is empty using Python's standard way
+    if not user_courses:
         st.info("Du hast noch keine Kurse ausgewählt. Bitte wähle zuerst deine Kurse aus.")
         return
     
@@ -56,7 +57,7 @@ def _display_learning_plan_generator(user_id: str, learning_type: str) -> None:
         st.write("Wähle die Kurse aus, für die du einen Lernplan erstellen möchtest:")
         
         selected_courses = []
-        for _, course in user_courses.iterrows():
+        for course in user_courses:  # Assuming user_courses is a list of course dictionaries
             if st.checkbox(f"{course['meeting_code']} - {course['title']}", value=True):
                 selected_courses.append({
                     'id': course['course_id'],

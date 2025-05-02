@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event, update_calendar_event
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Lade Umgebungsvariablen
 load_dotenv()

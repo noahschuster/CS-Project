@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 from streamlit_cookies_manager import EncryptedCookieManager
 from functools import lru_cache
 import pandas as pd
+from procrastination_risk import display_procrastination_assessment, display_dashboard_warning
 
 # Import specific functions to avoid unnecessarily importing entire modules
 from api_connection import get_user_courses
@@ -148,6 +149,9 @@ def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")
     st.subheader("Your Learning Journey")
 
+    # Zeige Prokrastinations-Warnung an (wenn Risiko hoch ist)
+    display_dashboard_warning(user_id)
+
     # Get user data with caching
     learning_type = get_cached_user_learning_type(user_id)
     
@@ -239,7 +243,8 @@ def main(cookies):
             "Learning Type": "learning_type.display_learning_type",
             "Study Sessions": "study_sessions.display_study_sessions",
             "Learning Tips": "learning_tipps.display_learning_tips",
-            "Learning Suggestions": "learning_suggestions.display_learning_suggestions"
+            "Learning Suggestions": "learning_suggestions.display_learning_suggestions",
+            "Prokrastinations-Risiko": "procrastination_risk.display_procrastination_assessment"
         }
         
         page = st.radio("Navigation", list(pages.keys()))

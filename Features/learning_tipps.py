@@ -1,151 +1,122 @@
 import streamlit as st
 from utils import get_user_learning_type
 
-# 🌈 Fullscreen Lern-Tipps mit modernen Effekten (VARK-Strategien)
 def display_learning_tips(user_id):
     """
-    Zeigt motivierende, fullscreen Lerntipps mit Mikroanimationen
-    basierend auf dem VARK-Lerntyp des Nutzers.
+    Displays personalized learning tips based on the user's VARK learning type.
+    Optimized for performance with minimal, purposeful animations.
     """
-    # --- CSS für Fullscreen, animierten Verlauf und Karten-Design ---
+    # Apply essential CSS only - reduced animations and simplified styling
     st.markdown("""
     <style>
-    /* Hauptbereich auf Full Width & Height strecken */
-    .css-1lcbmhc.e1tzin5v1 {
-        width: 100vw !important;
-        padding: 0 !important;
-    }
-    .css-1lcbmhc.e1tzin5v1 > div {
-        margin: 0 !important;
-    }
-    /* Hintergrund-Verlauf animiert */
-    .streamlit-container {
-        min-height: 100vh;
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
-    }
-    @keyframes gradientBG {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
-    /* Karten-Styling */
     .tip-card {
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(8px);
-      padding: 2rem;
-      border-radius: 1rem;
-      margin: 2rem auto;
-      max-width: 90vw;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-      transition: transform 0.2s;
-    }
-    .tip-card:hover {
-      transform: scale(1.02);
+      background: rgba(255,255,255,0.9);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      margin: 1.5rem auto;
+      max-width: 800px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     .tip-card h2 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
       color: #0366d6;
     }
     .tip-card ul {
-      list-style: none;
-      padding-left: 0;
+      list-style-type: none;
+      padding-left: 0.5rem;
+    }
+    .tip-card li {
+      margin-bottom: 0.5rem;
+      position: relative;
+      padding-left: 1.5rem;
     }
     .tip-card li:before {
       content: "💡";
-      margin-right: 0.5rem;
+      position: absolute;
+      left: 0;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- Konfetti & Vibrationseffekt ---
-    st.components.v1.html("""
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script>
-      setTimeout(() => confetti({ particleCount: 100, spread: 50 }), 500);
-      if (navigator.vibrate) { navigator.vibrate([100,50,100]); }
-    </script>
-    """, height=0)
-
-    st.title("✨ Personalisierte Lern-Tipps ✨")
+    st.title("Personalized Learning Tips")
     
+    # Get learning type with error handling
     learning_type = get_user_learning_type(user_id)
     if not learning_type:
-        st.warning("⚠️ Du hast deinen Lerntyp noch nicht festgelegt. Gehe zum Abschnitt 'Lerntyp' und mache den Test.")
+        st.warning("Please complete the learning style assessment first.")
         return
 
-    # Mapping VARK-Lerntypen zu Titeln und Tipps
+    # VARK learning strategies data - separated from display logic
     tip_mapping = {
         "Visuell": {
-            "title": "Visuelle Strategien",
+            "title": "Visual Strategies",
             "tips": [
-                "Ersetze Stichwörter durch Symbole oder Diagramme.",
-                "Rekonstruiere deine Notizen mit Bildern, Farben, Schriftarten und unterschiedlichen räumlichen Anordnungen.",
-                "Überarbeite deine Notizen und suche nach Mustern.",
-                "Reduziere 3 Seiten deiner Notizen auf 1.",
-                "Zeichne deine Notizen aus dem Gedächtnis neu.",
-                "Übersetze deine Visualisierungen zurück in Worte."
+                "Replace keywords with symbols or diagrams",
+                "Use colors, images and spatial arrangements in your notes",
+                "Look for patterns in your materials",
+                "Condense notes into one-page visual summaries",
+                "Redraw notes from memory",
+                "Translate visualizations back into words"
             ]
         },
         "Auditiv": {
-            "title": "Auditive Strategien",
+            "title": "Auditory Strategies",
             "tips": [
-                "Besuche Vorlesungen, Diskussionen und Tutorien.",
-                "Lasse Lücken in deinen Notizen für spätere Erinnerungen und das Ergänzen fehlender Details.",
-                "Erkläre deine Notizen und neuen Ideen einer anderen Person.",
-                "Reduziere 3 Seiten deiner Notizen auf 1.",
-                "Lies deine zusammengefassten Notizen laut vor; nimm sie auf und höre sie dir an.",
-                "Stelle Fragen und diskutiere Themen mit Lehrenden und Kommilitonen.",
-                "Hole dir Feedback zu deinem Verständnis, indem du Kommentare anderer anhörst.",
-                "Nutze Reime und Eselsbrücken, um dir Konzepte zu merken.",
-                "Übe mit alten Prüfungsaufgaben und sprich deine Antworten laut aus.",
-                "Stelle dir vor, du würdest mit der Prüferin bzw. dem Prüfer sprechen."
+                "Attend lectures, discussions and tutorials",
+                "Leave gaps in notes for later recall and filling in",
+                "Explain concepts aloud to others",
+                "Summarize key points verbally",
+                "Record and replay important content",
+                "Discuss topics with instructors and peers",
+                "Use rhythms and mnemonics for memorization",
+                "Practice by speaking answers aloud"
             ]
         },
         "Lesen/Schreiben": {
-            "title": "Lese-/Schreib-Strategien",
+            "title": "Reading/Writing Strategies",
             "tips": [
-                "Lies Lehrbücher, Handbücher und zugewiesene Texte.",
-                "Nutze Listen, Glossare und Wörterbücher.",
-                "Übersetze Ideen und Prinzipien in eigene Worte.",
-                "Organisiere Diagramme, Tabellen und Grafiken in Worte.",
-                "Schreibe Essays in strukturierten Absätzen mit Einleitung und Schlussfolgerung.",
-                "Strukturiere deine Notizen in Punkte entsprechend einer Hierarchie.",
-                "Reduziere 3 Seiten deiner Notizen auf 1, indem du unnötige Details entfernst.",
-                "Schreibe deine Notizen mehrmals um.",
-                "Lies deine Notizen still und wiederholt durch.",
-                "Verfasse Übungsaufgaben schriftlich zur Vorbereitung."
+                "Study textbooks and assigned readings",
+                "Use lists, glossaries and dictionaries",
+                "Rewrite ideas in your own words",
+                "Convert diagrams to written descriptions",
+                "Write structured essays with clear sections",
+                "Organize notes hierarchically",
+                "Rewrite notes multiple times for retention",
+                "Practice writing answers to test questions"
             ]
         },
         "Kinästhetisch": {
-            "title": "Kinästhetische Strategien",
+            "title": "Kinesthetic Strategies",
             "tips": [
-                "Ergänze deine Notizen um Details, die dir möglicherweise entgangen sind.",
-                "Sprich über deine Notizen mit einem anderen kinästhetischen Lernenden.",
-                "Reduziere 3 Seiten deiner Notizen auf 1.",
-                "Nutze Fallstudien, Fotos und Anwendungsbeispiele zur Veranschaulichung abstrakter Konzepte.",
-                "Nimm an Laboren und Exkursionen teil und reflektiere, was du gelernt hast.",
-                "Rufe dir erfolgreiche Lernerfahrungen in Erinnerung.",
-                "Übe Lösungen zu Aufgaben aus alten Prüfungsbögen."
+                "Add real-world details to your notes",
+                "Discuss notes with fellow hands-on learners",
+                "Use case studies and practical examples",
+                "Participate in labs and field trips",
+                "Recall successful learning experiences",
+                "Practice solutions using previous exams",
+                "Apply concepts to real-life situations"
             ]
         }
     }
 
-    # Unterstützung für Multimodal-Präferenzen
+    # Process multimodal learning types efficiently
+    display_types = []
     if learning_type.startswith("Multimodal"):
-        s,e = learning_type.find("("), learning_type.find(")")
-        types_to_display = [lt.strip() for lt in learning_type[s+1:e].split(",")] if s!=-1 and e!=-1 else []
+        start_idx = learning_type.find("(")
+        end_idx = learning_type.find(")")
+        if start_idx != -1 and end_idx != -1:
+            display_types = [lt.strip() for lt in learning_type[start_idx+1:end_idx].split(",")]
     else:
-        types_to_display = [learning_type]
+        display_types = [learning_type]
 
-    # Tipps als Fullscreen-Karten anzeigen
-    for lt in types_to_display:
+    # Display tips for each learning type
+    for lt in display_types:
         strategy = tip_mapping.get(lt)
         if not strategy:
-            st.warning(f"Keine Tipps verfügbar für den Lerntyp: {lt}")
+            st.warning(f"No tips available for learning type: {lt}")
             continue
+            
         st.markdown(f"""
         <div class='tip-card'>
           <h2>{strategy['title']}</h2>
@@ -154,10 +125,3 @@ def display_learning_tips(user_id):
           </ul>
         </div>
         """, unsafe_allow_html=True)
-
-    # Abschließendes Konfetti
-    st.components.v1.html("""
-    <script>
-      setTimeout(() => confetti({ particleCount: 150, spread: 70 }), 1200);
-    </script>
-    """, height=0)

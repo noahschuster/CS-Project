@@ -8,3 +8,7 @@ python-dotenv
 pandas
 bcrypt
 matplotlib
+google-auth-oauthlib
+google-auth
+google-api-python-client
+pytz

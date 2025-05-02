@@ -215,43 +215,45 @@ def display_dashboard(user_id, username):
         st.subheader("Upcoming Deadlines")
         display_upcoming_deadlines(user_id)
 
+# Änderungen an dashboard.py
+
+# In der main() Funktion, ergänze die pages-Dictionary
 def main(cookies):
     """Entry point for dashboard"""
     # Only check cookie readiness once
     if not cookies.ready():
         st.stop()
-    
+        
     user_id, username = check_login()
-    
+        
     # Check if learning type is completed - redirect if not
     if not st.session_state.get("learning_type_completed", False):
         # Import only when needed
         from learning_type import display_learning_type
         display_learning_type(user_id)
         return
-    
+        
     # Create sidebar
     with st.sidebar:
         st.title("StudyBuddy")
         st.write(f"Welcome, {username}!")
-        
+                
         # Navigation options
         pages = {
             "Dashboard": display_dashboard,
             "Calendar": "calendar_study.display_calendar",
             "Courses": "courses.display_courses",
             "Learning Type": "learning_type.display_learning_type",
-            "Study Sessions": "study_sessions.display_study_sessions",
             "Learning Tips": "learning_tipps.display_learning_tips",
             "Learning Suggestions": "learning_suggestions.display_learning_suggestions",
             "Prokrastinations-Risiko": "procrastination_risk.display_procrastination_assessment"
         }
-        
+                
         page = st.radio("Navigation", list(pages.keys()))
-        
+                
         if st.button("Logout", key="logout_button"):
             logout_user(cookies)
-    
+            
     # Load page dynamically - only import the module when needed
     if page == "Dashboard":
         display_dashboard(user_id, username)

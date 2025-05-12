@@ -3,106 +3,99 @@ from utils import get_user_learning_type
 
 def display_learning_tips(user_id):
     """
-    Displays personalized learning tips based on the user's VARK learning type.
-    Optimized for performance with minimal, purposeful animations.
+    Zeigt personalisierte Lerntipps basierend auf dem VARK-Lerntyp des Benutzers an.
     """
-    # Apply essential CSS only - reduced animations and simplified styling
-    st.markdown("""
-    <style>
-    .tip-card {
-      background: rgba(255,255,255,0.9);
-      padding: 1.5rem;
-      border-radius: 0.75rem;
-      margin: 1.5rem auto;
-      max-width: 800px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .tip-card h2 {
-      font-size: 1.5rem;
-      margin-bottom: 0.75rem;
-      color: #0366d6;
-    }
-    .tip-card ul {
-      list-style-type: none;
-      padding-left: 0.5rem;
-    }
-    .tip-card li {
-      margin-bottom: 0.5rem;
-      position: relative;
-      padding-left: 1.5rem;
-    }
-    .tip-card li:before {
-      content: "💡";
-      position: absolute;
-      left: 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.title("Personalized Learning Tips")
+    st.title("Personalisierte Lerntipps")
     
-    # Get learning type with error handling
+    # Lerntyp mit Fehlerbehandlung abrufen
     learning_type = get_user_learning_type(user_id)
     if not learning_type:
-        st.warning("Please complete the learning style assessment first.")
+        st.warning("Bitte führen Sie zuerst die Lernstilbewertung durch.")
         return
 
-    # VARK learning strategies data - separated from display logic
+    # Kurze Erklärung zum Lerntyp anzeigen
+    st.write(f"Ihr Lerntyp: **{learning_type}**")
+    
+    # Verbesserte VARK-Lernstrategien mit detaillierteren und praktischeren Tipps
     tip_mapping = {
         "Visuell": {
-            "title": "Visual Strategies",
+            "title": "Visuelle Strategien",
             "tips": [
-                "Replace keywords with symbols or diagrams",
-                "Use colors, images and spatial arrangements in your notes",
-                "Look for patterns in your materials",
-                "Condense notes into one-page visual summaries",
-                "Redraw notes from memory",
-                "Translate visualizations back into words"
+                "Erstellen Sie Mind-Maps zu komplexen Themen und Zusammenhängen",
+                "Verwenden Sie farbige Markierungen für verschiedene Konzepte und Kategorien",
+                "Zeichnen Sie Diagramme oder Skizzen zu abstrakten Konzepten",
+                "Nutzen Sie Video-Tutorials für schwierige Themen",
+                "Verwenden Sie Symbole und Piktogramme in Ihren Notizen",
+                "Organisieren Sie Informationen in visuellen Hierarchien oder Flussdiagrammen",
+                "Erstellen Sie Infografiken zu wichtigen Themengebieten",
+                "Arbeiten Sie mit Karteikarten, die visuelle Elemente enthalten"
             ]
         },
         "Auditiv": {
-            "title": "Auditory Strategies",
+            "title": "Auditive Strategien",
             "tips": [
-                "Attend lectures, discussions and tutorials",
-                "Leave gaps in notes for later recall and filling in",
-                "Explain concepts aloud to others",
-                "Summarize key points verbally",
-                "Record and replay important content",
-                "Discuss topics with instructors and peers",
-                "Use rhythms and mnemonics for memorization",
-                "Practice by speaking answers aloud"
+                "Nehmen Sie Vorlesungen auf und hören Sie sie mehrmals an",
+                "Diskutieren Sie den Lernstoff in Gruppen oder mit Lernpartnern",
+                "Erklären Sie komplexe Konzepte laut, als würden Sie sie jemandem beibringen",
+                "Nehmen Sie sich selbst beim Erklären wichtiger Konzepte auf",
+                "Verwenden Sie Podcasts oder Hörbücher zu Ihren Themen",
+                "Erstellen Sie Merksätze oder Reime für wichtige Formeln oder Fakten",
+                "Lesen Sie Ihre Notizen laut vor und nehmen Sie sie auf",
+                "Setzen Sie Musik strategisch ein: Lernen Sie mit Hintergrundmusik und reproduzieren Sie diese Umgebung in Prüfungssituationen"
             ]
         },
         "Lesen/Schreiben": {
-            "title": "Reading/Writing Strategies",
+            "title": "Lese-/Schreibstrategien",
             "tips": [
-                "Study textbooks and assigned readings",
-                "Use lists, glossaries and dictionaries",
-                "Rewrite ideas in your own words",
-                "Convert diagrams to written descriptions",
-                "Write structured essays with clear sections",
-                "Organize notes hierarchically",
-                "Rewrite notes multiple times for retention",
-                "Practice writing answers to test questions"
+                "Fassen Sie Vorlesungen in eigenen Worten schriftlich zusammen",
+                "Erstellen Sie strukturierte Zusammenfassungen mit Überschriften und Unterpunkten",
+                "Schreiben Sie Definitionen mehrmals auf und verfeinern Sie sie",
+                "Verwenden Sie Fachbücher und wissenschaftliche Artikel zur Vertiefung",
+                "Formulieren Sie potenzielle Prüfungsfragen und beantworten Sie diese schriftlich",
+                "Führen Sie ein Lerntagebuch zu Ihren Fortschritten und offenen Fragen",
+                "Wandeln Sie Diagramme und Grafiken in schriftliche Beschreibungen um",
+                "Erstellen Sie Glossare mit wichtigen Begriffen und deren Definitionen"
             ]
         },
         "Kinästhetisch": {
-            "title": "Kinesthetic Strategies",
+            "title": "Kinästhetische Strategien",
             "tips": [
-                "Add real-world details to your notes",
-                "Discuss notes with fellow hands-on learners",
-                "Use case studies and practical examples",
-                "Participate in labs and field trips",
-                "Recall successful learning experiences",
-                "Practice solutions using previous exams",
-                "Apply concepts to real-life situations"
+                "Wenden Sie theoretische Konzepte in praktischen Übungen an",
+                "Bauen Sie physische Modelle zu komplexen Themen",
+                "Nutzen Sie Rollenspiele oder Simulationen zum Verständnis von Prozessen",
+                "Bewegen Sie sich beim Lernen - gehen Sie auf und ab während des Memorierens",
+                "Verwenden Sie haptische Materialien wie Modelle oder interaktive Displays",
+                "Führen Sie Experimente durch, um theoretische Konzepte zu veranschaulichen",
+                "Erstellen Sie Lernspiele oder -aktivitäten zu Ihren Themen",
+                "Planen Sie regelmäßige Pausen für Bewegung während längerer Lernphasen"
             ]
         }
     }
+    
+    # Informationen zu effektiven Lernmethoden für alle Typen
+    allgemeine_tipps = [
+        "Teilen Sie den Lernstoff in kleinere, überschaubare Einheiten auf",
+        "Wenden Sie aktives Wiederholen an: Testen Sie sich selbst regelmäßig",
+        "Nutzen Sie verteiltes Lernen statt Marathonsitzungen",
+        "Erklären Sie anderen den Lernstoff (Feynman-Technik)",
+        "Verbinden Sie neue Informationen mit bereits bekanntem Wissen",
+        "Schaffen Sie eine ablenkungsfreie Lernumgebung",
+        "Planen Sie regelmäßige Pausen mit der Pomodoro-Technik"
+    ]
 
-    # Process multimodal learning types efficiently
+    # Prüfungsvorbereitungstipps
+    pruefungstipps = [
+        "Erstellen Sie einen realistischen Zeitplan mit konkreten Lernzielen",
+        "Üben Sie mit früheren Prüfungen oder selbst erstellten Testfragen",
+        "Identifizieren Sie Ihre Wissenslücken und konzentrieren Sie sich darauf",
+        "Bilden Sie Lerngruppen mit Kommilitonen",
+        "Reduzieren Sie den Lernstoff auf Kernkonzepte und wichtige Zusammenhänge"
+    ]
+
+    # Multimodale Lerntypen verarbeiten
     display_types = []
     if learning_type.startswith("Multimodal"):
+        st.write("Als multimodaler Lerntyp profitieren Sie von einer Kombination verschiedener Lernstrategien.")
         start_idx = learning_type.find("(")
         end_idx = learning_type.find(")")
         if start_idx != -1 and end_idx != -1:
@@ -110,18 +103,60 @@ def display_learning_tips(user_id):
     else:
         display_types = [learning_type]
 
-    # Display tips for each learning type
+    # Alle Tipps in einer Liste zusammenfassen
+    all_tips = []
+    
+    # Lerntyp-spezifische Tipps hinzufügen
     for lt in display_types:
         strategy = tip_mapping.get(lt)
-        if not strategy:
-            st.warning(f"No tips available for learning type: {lt}")
-            continue
-            
-        st.markdown(f"""
-        <div class='tip-card'>
-          <h2>{strategy['title']}</h2>
-          <ul>
-            {''.join(f'<li>{t}</li>' for t in strategy['tips'])}
-          </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        if strategy:
+            for tip in strategy['tips']:
+                all_tips.append({
+                    "icon": "💡",
+                    "text": tip
+                })
+    
+    # Allgemeine Tipps hinzufügen
+    for tip in allgemeine_tipps:
+        all_tips.append({
+            "icon": "✅",
+            "text": tip
+        })
+    
+    # Prüfungstipps hinzufügen
+    for tip in pruefungstipps:
+        all_tips.append({
+            "icon": "📝",
+            "text": tip
+        })
+    
+    # Session State für den aktuellen Tipp-Index initialisieren
+    if 'tip_index' not in st.session_state:
+        st.session_state['tip_index'] = 0
+    
+    # Aktuellen Tipp anzeigen
+    if all_tips:
+        current_tip = all_tips[st.session_state['tip_index']]
+        
+        # Container für den Tipp
+        tip_container = st.container()
+        with tip_container:
+            st.markdown(f"### Tipp {st.session_state['tip_index']+1}/{len(all_tips)}")
+            st.markdown(f"{current_tip['icon']} **{current_tip['text']}**")
+        
+        # Navigation für Tipps
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Vorheriger Tipp"):
+                st.session_state['tip_index'] = (st.session_state['tip_index'] - 1) % len(all_tips)
+                st.rerun()
+        
+        with col2:
+            if st.button("Nächster Tipp"):
+                st.session_state['tip_index'] = (st.session_state['tip_index'] + 1) % len(all_tips)
+                st.rerun()
+        
+        # Fortschrittsbalken
+        st.progress((st.session_state['tip_index'] + 1) / len(all_tips))
+    else:
+        st.warning("Keine Tipps verfügbar für Ihren Lerntyp.")

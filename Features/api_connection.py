@@ -174,7 +174,7 @@ def display_hsg_api_page():
     if not st.session_state.get('logged_in', False):
         st.warning("Please log in to access this page")
         return
-    
+
     user_id = st.session_state.get('user_id')
     username = st.session_state.get('username')
     
@@ -219,7 +219,7 @@ def display_hsg_api_page():
                     'language_id': c.language_id,
                     'selected': 1 if c.course_id in user_course_ids else 0
                 } for c in all_courses])
-                
+
                 search_term = st.text_input("Search courses by title or code:", key="search_courses")
                 
                 filtered_df = df_courses
@@ -240,24 +240,41 @@ def display_hsg_api_page():
                 st.write(f"Showing {len(filtered_df)} courses")
                 
                 with st.form("course_selection_form"):
-                    selected_courses = []
+                    # Container für die scrollbare Liste erstellen
+                    course_container = st.container()
                     
-                    for _, row in filtered_df.iterrows():
-                        course_id = row['course_id']
-                        title = row['title']
-                        code = row['meeting_code']
-                        lang = LANGUAGE_MAP.get(row['language_id'], f"Language {row['language_id']}")
-                        
-                        is_selected = st.checkbox(
-                            f"{code} - {title} ({lang})",
-                            value=(row['selected'] == 1),
-                            key=f"course_{course_id}"
-                        )
-                        
-                        if is_selected:
-                            selected_courses.append(course_id)
+                    # Speicherplatz für den Button reservieren (außerhalb des scrollbaren Bereichs)
+                    submit_button_placeholder = st.empty()
                     
-                    if st.form_submit_button("Save Course Selection"):
+                    # Scrollbaren Bereich definieren
+                    with course_container:
+                        st.markdown("""
+                        <style>
+                        [data-testid="stVerticalBlock"] > div:nth-child(1) {
+                            max-height: 400px;
+                            overflow-y: auto;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+                        
+                        selected_courses = []
+                        for _, row in filtered_df.iterrows():
+                            course_id = row['course_id']
+                            title = row['title']
+                            code = row['meeting_code']
+                            lang = LANGUAGE_MAP.get(row['language_id'], f"Language {row['language_id']}")
+                            
+                            is_selected = st.checkbox(
+                                f"{code} - {title} ({lang})",
+                                value=(row['selected'] == 1),
+                                key=f"course_{course_id}"
+                            )
+                            
+                            if is_selected:
+                                selected_courses.append(course_id)
+                    
+                    # Button außerhalb des scrollbaren Bereichs platzieren
+                    if submit_button_placeholder.form_submit_button("Save Course Selection"):
                         if save_user_course_selections(user_id, selected_courses):
                             st.success("Your course selection has been saved!")
                             st.rerun()
@@ -291,6 +308,7 @@ def display_hsg_api_page():
         st.error(f"Error accessing database: {str(e)}")
     finally:
         session.close()
+
 
 if __name__ == "__main__":
     display_hsg_api_page()

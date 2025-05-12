@@ -181,7 +181,12 @@ def display_calendar(user_id):
             with st.form("add_event_form"):
                 event_date = st.date_input("Date", datetime.now())
                 event_title = st.text_input("Event Title")
-                event_time = st.time_input("Time", datetime.now().time())
+                # Speichere die ausgewählte Zeit in einer Session-Variable, um sie zu erhalten
+                if 'selected_event_time' not in st.session_state:
+                    st.session_state.selected_event_time = datetime.now().time()
+                event_time = st.time_input("Time", st.session_state.selected_event_time)
+                # Aktualisiere die gespeicherte Zeit
+                st.session_state.selected_event_time = event_time
                 
                 event_type = st.selectbox(
                     "Event Type",
@@ -201,10 +206,13 @@ def display_calendar(user_id):
                 submit_button = st.form_submit_button("Add Event")
                 
                 if submit_button and event_title:
+                    # Stelle sicher, dass die Zeit im richtigen Format ist
+                    time_str = event_time.strftime("%H:%M")
+                    
                     new_event = {
                         'date': event_date.strftime("%Y-%m-%d"),
                         'title': event_title,
-                        'time': event_time.strftime("%H:%M"),
+                        'time': time_str,
                         'type': event_type,
                         'color': color_map[event_type],
                         'user_id': user_id
@@ -216,7 +224,7 @@ def display_calendar(user_id):
                         # Füge ID zum Event hinzu und speichere es im Session State
                         new_event['id'] = event_id
                         st.session_state.calendar_events.append(new_event)
-                        st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')}")
+                        st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')} at {time_str}")
                         st.rerun()
                     else:
                         st.error("Failed to save event to database.")

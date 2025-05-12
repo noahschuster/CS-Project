@@ -13,6 +13,13 @@ from api_connection import get_user_courses
 from utils import get_user_sessions, get_user_learning_type
 from database_manager import delete_session_token, get_calendar_events
 
+from dashboard_charts import (
+    create_pie_chart_learning_time_by_subject,
+    create_pie_chart_next_week_usage
+)
+
+
+
 # Constants
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
@@ -187,14 +194,11 @@ def display_dashboard(user_id, username):
         st.metric("Courses Enrolled", course_count)
         st.metric("Study Sessions", session_count)
         st.metric("Total Study Hours", f"{total_hours:.1f}" if isinstance(total_hours, (int, float)) else total_hours)
-        
-        # Display learning profile
-        st.subheader("Your Learning Profile")
-        if learning_type:
-            st.info(f"Your identified learning type: {learning_type}")
-            st.write("Based on your learning type, we've customized your experience.")
-        else:
-            st.warning("You haven't set your learning type yet. Go to the Learning Type section to take the quiz.")
+
+        # Diagramm 1: Lernzeiten nach Thema
+        st.write("### Lernzeiten nach Thema")
+        st.write("Dieses Diagramm zeigt, wie viel Zeit du für die einzelnen Themen oder Fächer aufgewendet hast. Es hilft dir, deine Lernzeit besser zu verstehen und zu priorisieren.")
+        create_pie_chart_learning_time_by_subject(user_id)
     
     with col2:
         st.subheader("Recent Activity")
@@ -214,6 +218,20 @@ def display_dashboard(user_id, username):
         
         st.subheader("Upcoming Deadlines")
         display_upcoming_deadlines(user_id)
+
+        # Display learning profile
+        st.subheader("Your Learning Profile")
+        if learning_type:
+            st.info(f"Your identified learning type: {learning_type}")
+            st.write("Based on your learning type, we've customized your experience.")
+        else:
+            st.warning("You haven't set your learning type yet. Go to the Learning Type section to take the quiz.")
+            
+
+         # Diagramm 2: Zeitnutzung der nächsten Woche
+        st.write("### Zeitnutzung der nächsten Woche")
+        st.write("Das Diagramm zeigt, wie viel Zeit von den geplanten 40 Stunden der nächsten Woche bereits durch Termine belegt ist. So kannst du sehen, wie viel Kapazität dir noch zur Verfügung steht.")
+        create_pie_chart_next_week_usage(user_id)
 
 # Änderungen an dashboard.py
 

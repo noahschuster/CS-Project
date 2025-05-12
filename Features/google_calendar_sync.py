@@ -18,17 +18,10 @@ load_dotenv()
 
 # Google Calendar API Konfiguration
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-CREDENTIALS_FILE = 'credentials.json'
 
 # Client ID und Secret aus Umgebungsvariablen laden
 CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-
-# Token-Informationen aus Umgebungsvariablen laden
-GOOGLE_ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
-GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
-GOOGLE_TOKEN_URI = os.getenv("GOOGLE_TOKEN_URI", "https://oauth2.googleapis.com/token")
-GOOGLE_EXPIRY = os.getenv("GOOGLE_EXPIRY")
 
 # Farbzuordnung zwischen StudyBuddy und Google Calendar
 EVENT_TYPE_COLOR_MAP = {
@@ -60,130 +53,92 @@ GOOGLE_COLOR_TO_EVENT_TYPE = {
     "8": "Other"
 }
 
-def update_env_tokens(creds):
+def save_credentials_to_session(creds):
     """
-    Aktualisiert die Token-Informationen in der .env-Datei.
-    Dies ist eine einfache Implementierung - in der Praxis solltest du eine robustere Lösung verwenden.
+    Speichert die Google Credentials im Streamlit Session State.
     """
     try:
-        # Lese die aktuelle .env-Datei
-        with open('.env', 'r') as file:
-            lines = file.readlines()
-        
-        # Aktualisierte Zeilen
-        updated_lines = []
-        token_updated = refresh_token_updated = expiry_updated = False
-        
-        for line in lines:
-            if line.startswith('GOOGLE_ACCESS_TOKEN='):
-                updated_lines.append(f'GOOGLE_ACCESS_TOKEN={creds.token}\n')
-                token_updated = True
-            elif line.startswith('GOOGLE_REFRESH_TOKEN=') and creds.refresh_token:
-                updated_lines.append(f'GOOGLE_REFRESH_TOKEN={creds.refresh_token}\n')
-                refresh_token_updated = True
-            elif line.startswith('GOOGLE_EXPIRY='):
-                updated_lines.append(f'GOOGLE_EXPIRY={creds.expiry.isoformat()}\n')
-                expiry_updated = True
-            else:
-                updated_lines.append(line)
-        
-        # Füge fehlende Token-Informationen hinzu
-        if not token_updated:
-            updated_lines.append(f'GOOGLE_ACCESS_TOKEN={creds.token}\n')
-        if not refresh_token_updated and creds.refresh_token:
-            updated_lines.append(f'GOOGLE_REFRESH_TOKEN={creds.refresh_token}\n')
-        if not expiry_updated and creds.expiry:
-            updated_lines.append(f'GOOGLE_EXPIRY={creds.expiry.isoformat()}\n')
-        
-        # Schreibe die aktualisierte .env-Datei
-        with open('.env', 'w') as file:
-            file.writelines(updated_lines)
-            
+        # Speichere Credentials im Session State
+        st.session_state.google_credentials = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": creds.scopes,
+            "expiry": creds.expiry.isoformat() if creds.expiry else None
+        }
         return True
     except Exception as e:
-        st.error(f"Fehler beim Aktualisieren der .env-Datei: {str(e)}")
+        st.error(f"Fehler beim Speichern der Credentials: {str(e)}")
         return False
 
-def reset_env_tokens():
+def reset_credentials():
     """
-    Entfernt die Token-Informationen aus der .env-Datei.
+    Entfernt die Google Credentials aus dem Session State.
     """
-    try:
-        # Lese die aktuelle .env-Datei
-        with open('.env', 'r') as file:
-            lines = file.readlines()
-        
-        # Entferne Token-Zeilen
-        updated_lines = [line for line in lines if not (
-            line.startswith('GOOGLE_ACCESS_TOKEN=') or 
-            line.startswith('GOOGLE_REFRESH_TOKEN=') or 
-            line.startswith('GOOGLE_EXPIRY=')
-        )]
-        
-        # Schreibe die aktualisierte .env-Datei
-        with open('.env', 'w') as file:
-            file.writelines(updated_lines)
-            
-        return True
-    except Exception as e:
-        st.error(f"Fehler beim Zurücksetzen der Token in der .env-Datei: {str(e)}")
-        return False
+    if 'google_credentials' in st.session_state:
+        del st.session_state.google_credentials
+    return True
 
 def get_google_credentials():
     """
     Authentifiziert mit Google Calendar API und gibt Credentials zurück.
-    Verwendet Token-Informationen aus .env-Datei statt token.json
+    Verwendet Credentials aus dem Session State.
     """
     creds = None
     
-    # Versuche, Token aus Umgebungsvariablen zu laden
-    if GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN:
-        token_data = {
-            "token": GOOGLE_ACCESS_TOKEN,
-            "refresh_token": GOOGLE_REFRESH_TOKEN,
-            "token_uri": GOOGLE_TOKEN_URI,
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "scopes": SCOPES,
-            "expiry": GOOGLE_EXPIRY
+    # Versuche, Credentials aus dem Session State zu laden
+    if 'google_credentials' in st.session_state:
+        creds_data = st.session_state.google_credentials
+        try:
+            # Erstelle Credentials-Objekt aus den gespeicherten Daten
+            creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
+            
+            # Prüfe, ob die Credentials gültig sind
+            if creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                    # Aktualisiere die Credentials im Session State
+                    save_credentials_to_session(creds)
+                except Exception as e:
+                    st.error(f"Fehler beim Aktualisieren des Tokens: {str(e)}")
+                    creds = None
+        except Exception as e:
+            st.error(f"Fehler beim Laden der Credentials aus dem Session State: {str(e)}")
+            creds = None
+    
+    # Wenn keine gültigen Credentials verfügbar sind, Benutzer anmelden lassen
+    if not creds or not creds.valid:
+        # Verwende Umgebungsvariablen für Client ID und Secret
+        if not CLIENT_ID or not CLIENT_SECRET:
+            st.error("Client ID oder Client Secret nicht in Umgebungsvariablen gefunden")
+            return None
+        
+        # Konfiguration für den OAuth-Flow
+        client_config = {
+            "web": {
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": ["http://localhost:8502"]  # Anderer Port als Streamlit
+            }
         }
         
         try:
-            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
-        except Exception as e:
-            st.error(f"Fehler beim Laden der Token-Informationen aus .env: {str(e)}")
-            creds = None
-    
-    # Wenn keine gültigen Anmeldeinformationen verfügbar sind, Benutzer anmelden lassen
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-                # Aktualisierte Token in .env speichern
-                update_env_tokens(creds)
-            except Exception as e:
-                st.error(f"Fehler beim Aktualisieren des Tokens: {str(e)}")
-                creds = None
-        else:
-            # Verwende Umgebungsvariablen statt credentials.json
-            if not CLIENT_ID or not CLIENT_SECRET:
-                st.error("Client ID oder Client Secret nicht in .env-Datei gefunden")
-                return None
-                
-            flow = InstalledAppFlow.from_client(
-                {"web": {
-                    "client_id": CLIENT_ID,
-                    "client_secret": CLIENT_SECRET,
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": ["http://localhost:8501/"]
-                }},
-                SCOPES
-            )
-            creds = flow.run_local_server(port=8501)
+            # OAuth-Flow erstellen
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             
-            # Neue Token in .env speichern
-            update_env_tokens(creds)
+            # Authentifizierung über lokalen Server
+            st.info("Ein Browser-Fenster wird geöffnet. Bitte melde dich bei Google an und erteile die Berechtigungen.")
+            creds = flow.run_local_server(port=8502)
+            
+            # Speichere die neuen Credentials im Session State
+            save_credentials_to_session(creds)
+        except Exception as e:
+            st.error(f"Fehler bei der Authentifizierung: {str(e)}")
+            return None
     
     return creds
 
@@ -194,7 +149,7 @@ def get_google_calendar_service():
     creds = get_google_credentials()
     if not creds:
         return None
-        
+    
     try:
         service = build('calendar', 'v3', credentials=creds)
         return service
@@ -209,7 +164,7 @@ def get_google_calendars():
     service = get_google_calendar_service()
     if not service:
         return []
-        
+    
     try:
         calendar_list = service.calendarList().list().execute()
         calendars = calendar_list.get('items', [])
@@ -313,7 +268,7 @@ def update_google_event(service, calendar_id, google_event_id, event_data):
             event['extendedProperties'] = {'private': {}}
         elif 'private' not in event['extendedProperties']:
             event['extendedProperties']['private'] = {}
-            
+        
         # StudyBuddy-Metadaten aktualisieren
         event['extendedProperties']['private']['studybuddy_id'] = str(event_data.get('id', ''))
         event['extendedProperties']['private']['studybuddy_type'] = event_type
@@ -451,22 +406,22 @@ def sync_from_google(user_id, calendar_id):
             # Wenn es ein gelöschtes Event ist, überspringen
             if google_event.get('status') == 'cancelled':
                 continue
-                
+            
             # Wenn es kein Start-Datum/Zeit hat, überspringen
             if 'start' not in google_event or 'dateTime' not in google_event['start']:
                 skipped += 1
                 continue
-                
+            
             # Datum und Zeit extrahieren
             start_datetime = datetime.fromisoformat(google_event['start']['dateTime'].replace('Z', '+00:00'))
             date_str = start_datetime.strftime("%Y-%m-%d")
             time_str = start_datetime.strftime("%H:%M")
-                
+            
             # Event-Typ und Farbe bestimmen
             color_id = google_event.get('colorId', '8')
             event_type = GOOGLE_COLOR_TO_EVENT_TYPE.get(color_id, 'Other')
             color = GOOGLE_TO_STUDYBUDDY_COLORS.get(color_id, '#f0f0f0')
-                
+            
             # Event-Daten vorbereiten
             event_data = {
                 'title': google_event.get('summary', 'Untitled Event'),
@@ -476,7 +431,7 @@ def sync_from_google(user_id, calendar_id):
                 'color': color,
                 'user_id': user_id
             }
-                
+            
             if studybuddy_id and studybuddy_id in studybuddy_events_map:
                 # Event existiert bereits in StudyBuddy -> aktualisieren
                 result = update_calendar_event(int(studybuddy_id), event_data)
@@ -489,13 +444,13 @@ def sync_from_google(user_id, calendar_id):
                     new_id = save_calendar_event(user_id, event_data)
                     if new_id:
                         created += 1
-                                        
+                        
                         # Aktualisiere das Google-Event mit der neuen StudyBuddy-ID
                         if 'extendedProperties' not in google_event:
                             google_event['extendedProperties'] = {'private': {}}
                         elif 'private' not in google_event['extendedProperties']:
                             google_event['extendedProperties']['private'] = {}
-                            
+                        
                         google_event['extendedProperties']['private']['studybuddy_id'] = str(new_id)
                         
                         service.events().update(
@@ -505,6 +460,7 @@ def sync_from_google(user_id, calendar_id):
                         ).execute()
         
         message = f"Import abgeschlossen: {created} erstellt, {updated} aktualisiert, {skipped} übersprungen."
+        st.rerun()
         return True, message
     
     except HttpError as error:
@@ -574,7 +530,7 @@ def display_google_calendar_sync(user_id):
         return
     
     # Prüfen, ob bereits authentifiziert
-    is_authenticated = GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
+    is_authenticated = 'google_credentials' in st.session_state
     
     if not is_authenticated:
         st.warning("Du bist noch nicht mit Google Calendar verbunden.")
@@ -594,7 +550,7 @@ def display_google_calendar_sync(user_id):
     if not calendars:
         st.warning("Keine Google Kalender gefunden oder Fehler beim Abrufen der Kalender.")
         if st.button("Verbindung zurücksetzen"):
-            reset_env_tokens()
+            reset_credentials()
             st.success("Verbindung zurückgesetzt. Bitte verbinde dich erneut.")
             st.rerun()
         return
@@ -618,8 +574,8 @@ def display_google_calendar_sync(user_id):
     st.write("### Synchronisationsoptionen")
     
     # Automatische Synchronisation
-    auto_sync = st.checkbox("Automatische Synchronisation aktivieren", 
-                           value=st.session_state.get('auto_sync', False))
+    auto_sync = st.checkbox("Automatische Synchronisation aktivieren",
+                            value=st.session_state.get('auto_sync', False))
     
     if auto_sync != st.session_state.get('auto_sync', False):
         st.session_state.auto_sync = auto_sync
@@ -649,7 +605,7 @@ def display_google_calendar_sync(user_id):
     # Verbindung zurücksetzen
     st.write("### Verbindungseinstellungen")
     if st.button("Verbindung zu Google Calendar zurücksetzen"):
-        reset_env_tokens()
+        reset_credentials()
         st.success("Verbindung zurückgesetzt. Bitte verbinde dich erneut.")
         st.rerun()
 

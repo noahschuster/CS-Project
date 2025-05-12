@@ -8,6 +8,7 @@ from database_manager import get_calendar_events, save_calendar_event, delete_ca
 # Neuer Import für Google Calendar Synchronisation
 from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 
+
 def display_calendar(user_id):
     st.title("Study Calendar")
     
@@ -16,10 +17,8 @@ def display_calendar(user_id):
     
     with cal_tab1:
         # Lade Ereignisse aus der Datenbank statt Demo-Events zu verwenden
-        if 'calendar_events' not in st.session_state:
-            # Lade Ereignisse aus der Datenbank
-            db_events = get_calendar_events(user_id)
-            st.session_state.calendar_events = db_events if db_events else []
+        db_events = get_calendar_events(user_id)
+        st.session_state.calendar_events = db_events if db_events else []
         
         # Prüfe auf automatische Synchronisation
         check_auto_sync(user_id)
@@ -265,6 +264,7 @@ def display_calendar(user_id):
     # Google Calendar Sync Tab
     with cal_tab2:
         display_google_calendar_sync(user_id)
+
 
 # Function to integrate with your database later
 def save_events_to_db(user_id, events):

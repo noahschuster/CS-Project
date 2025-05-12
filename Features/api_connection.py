@@ -22,6 +22,7 @@ def api_request(endpoint, headers=None):
         response = requests.get(f"{API_BASE_URL}{endpoint}", headers=headers)
         if response.ok:
             return response.json()
+
         else:
             st.error(f"API Error: {response.status_code}")
             return None

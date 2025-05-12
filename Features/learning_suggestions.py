@@ -36,9 +36,15 @@ from database_manager import (
 )
 from api_connection import get_user_courses # Fetches course_id, title, code, link_course_info
 
-# --- OpenAI API Key --- 
-# IMPORTANT: For production, use environment variables or a secure config management system.
-OPENAI_API_KEY = "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" # User provided key
+from dotenv import load_dotenv
+import os
+
+# Lade die .env-Datei
+load_dotenv()
+
+# Hole den API-Key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
 client: Optional[OpenAI] = None
 if OPENAI_AVAILABLE and OPENAI_API_KEY:

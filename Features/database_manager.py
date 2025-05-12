@@ -14,11 +14,30 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+
+# Am Anfang der database_manager.py
+OFFLINE_MODE = True  # Auf False setzen, wenn du wieder online gehen willst
+
 # Load environment variables
 load_dotenv()
 
-# --- Database Connection Configuration ---
+
 def get_db_engine():
+    if OFFLINE_MODE:
+        # SQLite für Offline-Modus
+        SQLALCHEMY_DATABASE_URL = "sqlite:///./local_database.db"
+        engine = create_engine(
+            SQLALCHEMY_DATABASE_URL, 
+            connect_args={"check_same_thread": False}
+        )
+        return engine
+    else:
+        # Azure SQL für Online-Modus
+        return get_azure_db_engine()
+
+
+# --- Database Connection Configuration ---
+def get_azure_db_engine():
     """Creates and returns a SQLAlchemy engine for Azure SQL Database."""
     server = os.getenv("DB_SERVER", "studybuddyhsg.database.windows.net")
     database = os.getenv("DB_DATABASE", "CS-Project-DB")
@@ -117,6 +136,18 @@ class SessionToken(Base):
     token = Column(String(100), unique=True, index=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+
+class CourseSchedule(Base):
+    __tablename__ = "course_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(String(100), ForeignKey("courses.course_id"), nullable=False)
+    start_date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
+    start_time = Column(String(5), nullable=False)   # Format: HH:MM
+    end_time = Column(String(5), nullable=False)     # Format: HH:MM
+    room = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class Course(Base):
     __tablename__ = "courses"

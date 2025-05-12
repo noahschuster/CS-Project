@@ -1,6 +1,27 @@
 # main.py
 import streamlit as st
 
+import os
+import sys
+import subprocess
+
+# Path to the database file
+db_path = 'local_database.db'
+
+# Check if the database file exists
+if not os.path.exists(db_path):
+    print(f"Database file {db_path} not found. Creating it now...")
+    
+    try:
+        # Run db.py to create the database
+        subprocess.run([sys.executable, 'db.py'], check=True)
+        print(f"Database file {db_path} created successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating database: {e}")
+        sys.exit(1)
+else:
+    print(f"Database file {db_path} already exists.")
+    
 # --- Set page config FIRST ---
 st.set_page_config(
     page_title="StudyBuddy",

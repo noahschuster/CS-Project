@@ -223,7 +223,7 @@ def fetch_and_store_courses():
                 
                 # Aktualisiere den Status alle 50 Kurse
                 if i % 50 == 0 or i == len(courses_data) - 1:
-                    status.info(f"Processing course {i+1}/{len(courses_data)}: {course.get('title', '')}")
+                    status.info(f"Verarbeite Kurs {i+1}/{len(courses_data)}: {course.get('title', '')}")
                 
                 course_id = str(course.get('id', ''))
                 existing_course = session.query(Course).filter(Course.course_id == course_id).first()
@@ -260,14 +260,14 @@ def fetch_and_store_courses():
                 courses_added += 1
             except Exception as e:
                 session.rollback()
-                st.error(f"Error adding course {course.get('id', '')}: {str(e)}")
+                st.error(f"Fehler beim Hinzufügen von Kursen {course.get('id', '')}: {str(e)}")
         
         # Finaler Commit
         session.commit()
         
         # Entferne den Fortschrittsbalken und zeige Erfolgsmeldung
         progress_bar.empty()
-        status.success(f"Successfully imported {courses_added} courses with {schedules_added} schedules for {term_description}")
+        status.success(f"Erfolgreich importierte {courses_added} Kurse mit {schedules_added} Zeitplänen für {term_description}")
         
         # Lade die Seite neu, um die Änderungen anzuzeigen
         st.rerun()
@@ -275,7 +275,7 @@ def fetch_and_store_courses():
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error storing courses: {str(e)}")
+        st.error(f"Fehler beim Speichern von Kursen: {str(e)}")
         return False
     finally:
         session.close()
@@ -371,40 +371,40 @@ def save_user_course_selections(user_id, course_ids):
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error saving course selections: {str(e)}")
+        st.error(f"Fehler beim Speichern von Kursauswahlen: {str(e)}")
         return False
     finally:
         session.close()
 
 def display_hsg_api_page(user_id):
-    st.title("HSG Courses")
+    st.title("HSG Kurse")
     
     if not st.session_state.get('logged_in', False):
-        st.warning("Please log in to access this page")
+        st.warning("Bitte melden Sie sich an, um auf diese Seite zuzugreifen")
         return
     
     user_id = st.session_state.get('user_id')
     username = st.session_state.get('username')
     
-    st.write(f"Hello {username}! Here you can manage your courses from the University of St. Gallen.")
+    st.write(f"Grützi {username}! Hier können Sie Ihre Kurse an der Universität St. Gallen verwalten.")
     
     session = SessionLocal()
     try:
         course_count = session.query(Course).count()
         
-        with st.expander("Admin: Update Course Database"):
+        with st.expander("Verwaltung: Kursdatenbank aktualisieren"):
             if course_count > 0:
-                st.info(f"Currently there are {course_count} courses in the database.")
+                st.info(f"Aktuell enthält die Datenbank {course_count} Kurs.")
             else:
-                st.warning("No courses in the database yet.")
+                st.warning("Noch keine Kurse in der Datenbank.")
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Fetch Latest Courses from HSG API"):
+                if st.button("Neueste Kurse von HSG API abrufen"):
                     fetch_and_store_courses()
         
         if course_count > 0:
-            tab1, tab2 = st.tabs(["Select Courses", "My Schedule"])
+            tab1, tab2 = st.tabs(["Kurse auswählen", "Mein Stundenplan"])
             
             with tab1:
                 all_courses = session.query(
@@ -425,7 +425,7 @@ def display_hsg_api_page(user_id):
                     'selected': 1 if c.course_id in user_course_ids else 0
                 } for c in all_courses])
                 
-                search_term = st.text_input("Search courses by title or code:", key="search_courses")
+                search_term = st.text_input("Suche nach Kursen nach Titel oder Code:", key="search_courses")
                 
                 filtered_df = df_courses
                 if search_term and not df_courses.empty:
@@ -436,13 +436,13 @@ def display_hsg_api_page(user_id):
                 
                 languages = sorted(filtered_df['language_id'].unique()) if not filtered_df.empty else []
                 language_options = ["All"] + [LANGUAGE_MAP.get(lang, f"Language {lang}") for lang in languages]
-                selected_language = st.selectbox("Filter by language:", language_options)
+                selected_language = st.selectbox("Nach Sprache filtern:", language_options)
                 
                 if selected_language != "All" and not filtered_df.empty:
                     lang_id = [k for k, v in LANGUAGE_MAP.items() if v == selected_language][0]
                     filtered_df = filtered_df[filtered_df['language_id'] == lang_id]
                 
-                st.write(f"Showing {len(filtered_df)} courses")
+                st.write(f"Zeige {len(filtered_df)} Kurse")
                 
                 with st.form("course_selection_form"):
                     # Container für die scrollbare Liste erstellen
@@ -518,7 +518,7 @@ def display_hsg_api_page(user_id):
 
     
     except Exception as e:
-        st.error(f"Error accessing database: {str(e)}")
+        st.error(f"Fehler beim Zugriff auf die Datenbank: {str(e)}")
     finally:
         session.close()
 

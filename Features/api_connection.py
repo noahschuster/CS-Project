@@ -33,6 +33,110 @@ def api_request(endpoint, headers=None):
 def fetch_current_term():
     return api_request("/eventapi/timeLines/currentTerm")
 
+def fetch_course_schedule(term_id, event_id):
+    """
+    Ruft den Zeitplan für einen bestimmten Kurs ab.
+    
+    Args:
+        term_id (str): Die Semester-ID
+        event_id (str): Die Kurs-/Veranstaltungs-ID
+        
+    Returns:
+        list: Liste der Termine für den Kurs
+    """
+    return api_request(f"/eventapi/EventDates/byEvent/{event_id}/byTerm/{term_id}")
+
+def sync_course_schedule_to_calendar(user_id):
+    """
+    Synchronisiert alle Kurstermine eines Benutzers mit seinem Kalender.
+    
+    Args:
+        user_id (int): Die Benutzer-ID
+        
+    Returns:
+        int: Anzahl der zum Kalender hinzugefügten Termine
+    """
+    from database_manager import get_calendar_events, save_calendar_event
+    
+    # Aktuelle Kurse des Benutzers abrufen
+    user_courses = get_user_courses(user_id)
+    if not user_courses:
+        return 0
+    
+    # Aktuelles Semester abrufen
+    current_term = fetch_current_term()
+    if not current_term:
+        st.error("Fehler beim Abrufen der aktuellen Semesterinformationen.")
+        return 0
+    
+    term_id = current_term['id']
+    events_added = 0
+    
+    # Bestehende Kalendereinträge abrufen, um Duplikate zu vermeiden
+    existing_events = get_calendar_events(user_id)
+    existing_event_titles = set()
+    if existing_events:
+        for event in existing_events:
+            if isinstance(event, dict) and 'title' in event and 'date' in event and 'time' in event:
+                event_key = f"{event['title']}_{event['date']}_{event['time']}"
+                existing_event_titles.add(event_key)
+    
+    for course in user_courses:
+        course_id = course['course_id']
+        course_title = course['title']
+        course_code = course['meeting_code']
+        
+        # Kurstermine abrufen
+        course_dates = fetch_course_schedule(term_id, course_id)
+        if not course_dates:
+            continue
+        
+        for date in course_dates:
+            try:
+                # Daten aus der API extrahieren
+                start_datetime = date.get('startDate')
+                end_datetime = date.get('endDate')
+                room = date.get('roomName', 'Kein Raum angegeben')
+                
+                if not start_datetime or not end_datetime:
+                    continue
+                
+                # Datum und Zeit formatieren
+                start_date = start_datetime.split('T')[0]  # YYYY-MM-DD
+                start_time = start_datetime.split('T')[1][:5]  # HH:MM
+                end_time = end_datetime.split('T')[1][:5]  # HH:MM
+                
+                # Ereignistitel erstellen
+                event_title = f"{course_code} - {course_title}"
+                
+                # Prüfen, ob der Termin bereits existiert
+                event_key = f"{event_title}_{start_date}_{start_time}"
+                if event_key in existing_event_titles:
+                    continue
+                
+                # Kalenderereignis erstellen
+                event_data = {
+                    'title': event_title,
+                    'date': start_date,
+                    'time': start_time,
+                    'end_time': end_time,
+                    'event_type': "Vorlesung",
+                    'color': "#ccccff",  # Blau für Vorlesungen
+                    'user_id': user_id,
+                    'description': f"Raum: {room}"
+                }
+                
+                # Ereignis zum Kalender hinzufügen
+                event_id = save_calendar_event(user_id, event_data)
+                if event_id:
+                    events_added += 1
+            except Exception as e:
+                st.error(f"Fehler bei der Verarbeitung des Kurstermins: {e}")
+                continue
+    
+    return events_added
+
+
 def fetch_courses_for_term(term_id):
     return api_request(f"/eventapi/Events/byTerm/{term_id}")
 
@@ -265,7 +369,7 @@ def display_hsg_api_page(user_id):
             
             with tab2:
                 user_courses = session.query(
-                    Course.meeting_code, Course.title, Course.description, 
+                    Course.course_id, Course.meeting_code, Course.title, Course.description, 
                     Course.language_id, Course.link_course_info
                 ).join(
                     UserCourse, Course.course_id == UserCourse.course_id
@@ -274,19 +378,27 @@ def display_hsg_api_page(user_id):
                 ).all()
                 
                 if len(user_courses) == 0:
-                    st.info("You haven't selected any courses yet. Go to the 'Select Courses' tab to add courses.")
+                    st.info("Du hast noch keine Kurse ausgewählt. Gehe zum 'Kurse auswählen'-Tab, um Kurse hinzuzufügen.")
                 else:
-                    st.write(f"You have selected {len(user_courses)} courses:")
+                    st.write(f"Du hast {len(user_courses)} Kurse ausgewählt:")
+                    
+                    # Button zum Synchronisieren der Kurstermine mit dem Kalender
+                    if st.button("Kurszeiten mit Kalender synchronisieren"):
+                        with st.spinner("Synchronisiere Kurszeiten mit deinem Kalender..."):
+                            events_added = sync_course_schedule_to_calendar(user_id)
+                            if events_added > 0:
+                                st.success(f"{events_added} Kurstermine wurden zu deinem Kalender hinzugefügt!")
+                            else:
+                                st.warning("Es wurden keine Kurstermine gefunden oder sie sind bereits in deinem Kalender.")
                     
                     for course in user_courses:
                         with st.expander(f"{course.meeting_code} - {course.title}"):
-                            st.write(f"**Language:** {LANGUAGE_MAP.get(course.language_id, 'Unknown')}")
+                            st.write(f"**Sprache:** {LANGUAGE_MAP.get(course.language_id, 'Unbekannt')}")
                             if course.description:
-                                st.write(f"**Description:** {course.description}")
+                                st.write(f"**Beschreibung:** {course.description}")
                             if course.link_course_info:
-                                st.markdown(f"[Course Information Sheet]({course.link_course_info})")
-        else:
-            st.info("No courses available. Please use the admin section to fetch courses.")
+                                st.markdown(f"[Kursmerkblatt]({course.link_course_info})")
+
     
     except Exception as e:
         st.error(f"Error accessing database: {str(e)}")

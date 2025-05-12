@@ -1,8 +1,29 @@
+"""
+Modul für die Anzeige und Generierung von Lernvorschlägen, überarbeitet mit KI-Funktionen.
+"""
 import streamlit as st
 import random
-from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Union
+import os
+import re
+import json
+import requests
+import fitz  # PyMuPDF
+from datetime import datetime, timedelta, date as date_type, time as time_type # Renamed to avoid conflict with time module
+from typing import List, Dict, Any, Optional, Union, Tuple
 
+# Attempt to import OpenAI, make it a soft dependency for parts of the module
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    # Define a dummy client if openai is not available, so functions can check for it
+    class DummyOpenAIClient:
+        def __init__(self, api_key=None):
+            pass # Does nothing
+    OpenAI = DummyOpenAIClient # type: ignore
+
+# Imports from other project modules (assumed to be in PYTHONPATH)
 from database_manager import (
     get_calendar_events,
     save_calendar_event,
@@ -13,558 +34,978 @@ from database_manager import (
     update_study_task,
     delete_study_task
 )
-from api_connection import get_user_courses
+from api_connection import get_user_courses # Fetches course_id, title, code, link_course_info
 
+# --- OpenAI API Key --- 
+# IMPORTANT: For production, use environment variables or a secure config management system.
+OPENAI_API_KEY = "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" # User provided key
 
-def display_learning_suggestions(user_id: str) -> None:
-    """Main function to display personalized learning suggestions based on learning type."""
-    st.title("Personalisierte Lernvorschläge")
-    
-    # Check if learning type is already set
-    learning_type, completed = get_learning_type_status(user_id)
-    
-    if not completed:
-        st.warning("Du hast deinen Lerntyp noch nicht festgelegt. Bitte beantworte zuerst die Fragen zum Lerntyp.")
-        from learning_type import display_learning_type
-        display_learning_type(user_id)
-        return
-    
-    # Tabs for different functions
-    tab1, tab2 = st.tabs(["Lernplan generieren", "Meine Lernaufgaben"])
-    
-    with tab1:
-        _display_learning_plan_generator(user_id, learning_type)
-    
-    with tab2:
-        display_study_tasks(user_id)
-
-
-def _display_learning_plan_generator(user_id: str, learning_type: str) -> None:
-    """Display the learning plan generator interface."""
-    st.subheader("Lernplan basierend auf deinem Lerntyp")
-    st.write(f"Dein Lerntyp: **{learning_type}**")
-    
-    # Get user courses
-    user_courses = get_user_courses(user_id)
-    
-    # Fix: Check if list is empty using Python's standard way
-    if not user_courses:
-        st.info("Du hast noch keine Kurse ausgewählt. Bitte wähle zuerst deine Kurse aus.")
-        return
-    
-    # Form for creating a study plan
-    with st.form("generate_study_plan"):
-        st.write("Wähle die Kurse aus, für die du einen Lernplan erstellen möchtest:")
-        
-        selected_courses = []
-        for course in user_courses:  # Assuming user_courses is a list of course dictionaries
-            if st.checkbox(f"{course['meeting_code']} - {course['title']}", value=True):
-                selected_courses.append({
-                    'id': course['course_id'],
-                    'title': course['title'],
-                    'code': course['meeting_code']
-                })
-        
-        st.write("Zeitraum für den Lernplan:")
-        start_date = st.date_input("Startdatum", datetime.now().date())
-        weeks = st.slider("Anzahl Wochen", 1, 4, 2)
-        
-        submit_button = st.form_submit_button("Lernplan generieren")
-    
-    # Generate study plan when submitted
-    if submit_button and selected_courses:
-        _handle_study_plan_generation(user_id, selected_courses, start_date, weeks, learning_type)
-
-    # Save button for the generated plan
-    if st.button("Lernplan im Kalender speichern", key="save_calendar_button"):
-        _handle_study_plan_saving(user_id)
-
-
-def _handle_study_plan_generation(
-    user_id: str, 
-    selected_courses: List[Dict[str, str]], 
-    start_date: datetime.date, 
-    weeks: int, 
-    learning_type: str
-) -> None:
-    """Handle the generation of a study plan and display it."""
-    # Get existing calendar events
-    calendar_events = get_calendar_events(user_id)
-    
-    # Generate study plan
-    study_plan = generate_study_plan(
-        user_id, 
-        selected_courses, 
-        start_date, 
-        weeks, 
-        learning_type, 
-        calendar_events
-    )
-    
-    if study_plan:
-        # Save the study plan in session state
-        st.session_state.study_plan = study_plan
-        
-        st.success(f"Lernplan für {len(selected_courses)} Kurse über {weeks} Wochen erstellt!")
-        
-        # Display the study plan
-        display_study_plan(study_plan)
-
-
-def _handle_study_plan_saving(user_id: str) -> None:
-    """Handle saving the generated study plan to the calendar."""
-    if 'study_plan' in st.session_state and st.session_state.study_plan:
-        success = save_study_plan_to_calendar(user_id, st.session_state.study_plan)
-        if success:
-            st.success("Lernplan wurde im Kalender gespeichert!")
-            st.rerun()
+client: Optional[OpenAI] = None
+if OPENAI_AVAILABLE and OPENAI_API_KEY:
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+    except Exception as e:
+        if "st" in globals() and hasattr(st, "error"):
+            st.error(f"Failed to initialize OpenAI client: {e}")
+        else:
+            print(f"ERROR: Failed to initialize OpenAI client: {e}")
+        client = None
+elif OPENAI_AVAILABLE and not OPENAI_API_KEY:
+    if "st" in globals() and hasattr(st, "error"):
+        st.error("OpenAI API key not found. Please set it to use the AI learning plan generation feature.")
     else:
-        st.error("Kein Lernplan zum Speichern vorhanden. Bitte generiere zuerst einen Lernplan.")
+        print("ERROR: OpenAI API key not found.")
+    client = None
+
+# --- Constants --- 
+MINUTES_PER_ECTS_PER_WEEK = 45
+DEFAULT_SESSION_DURATION_MINUTES = 90
+PDF_DOWNLOAD_DIR = "/home/ubuntu/pdf_course_sheets" # Ensure this directory is writable
+if not os.path.exists(PDF_DOWNLOAD_DIR):
+    try:
+        os.makedirs(PDF_DOWNLOAD_DIR, exist_ok=True)
+    except OSError as e:
+        if "st" in globals() and hasattr(st, "error"):
+            st.error(f"Could not create PDF download directory {PDF_DOWNLOAD_DIR}: {e}")
+        else:
+            print(f"ERROR: Could not create PDF download directory {PDF_DOWNLOAD_DIR}: {e}")
 
 
-def generate_study_plan(
-    user_id: str, 
-    courses: List[Dict[str, str]], 
-    start_date: datetime.date, 
-    weeks: int, 
-    learning_type: str, 
-    existing_events: List[Dict[str, str]]
-) -> List[Dict[str, Any]]:
-    """
-    Generate a study plan based on courses, learning type, and timeframe.
-    Takes into account existing calendar events to avoid conflicts.
-    """
-    study_plan = []
+# --- PDF Processing Utilities ---
+def download_pdf(pdf_url: str, course_code: str, download_dir: str = PDF_DOWNLOAD_DIR) -> Optional[str]:
+    """Downloads a PDF from a URL and saves it locally."""
+    try:
+        if not os.path.exists(download_dir):
+            try:
+                os.makedirs(download_dir, exist_ok=True)
+            except OSError as e:
+                if "st" in globals() and hasattr(st, "error"):
+                    st.error(f"Could not create PDF download directory {download_dir}: {e}")
+                else:
+                    print(f"ERROR: Could not create PDF download directory {download_dir}: {e}")
+                return None
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(pdf_url, timeout=60, headers=headers)
+        response.raise_for_status()
+        safe_course_code = "".join(c if c.isalnum() else "_" for c in course_code)
+        file_path = os.path.join(download_dir, f"{safe_course_code}_sheet_{random.randint(1000,9999)}.pdf")
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+        return file_path
+    except requests.exceptions.RequestException as e:
+        if "st" in globals() and hasattr(st, "error"):
+            st.error(f"Error downloading PDF for {course_code} from {pdf_url}: {e}")
+        else:
+            print(f"ERROR: Error downloading PDF for {course_code} from {pdf_url}: {e}")
+        return None
+    except Exception as e:
+        if "st" in globals() and hasattr(st, "error"):
+            st.error(f"An unexpected error occurred during PDF download for {course_code}: {e}")
+        else:
+            print(f"ERROR: An unexpected error occurred during PDF download for {course_code}: {e}")
+        return None
+
+def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
+    """Extracts text from a PDF file using PyMuPDF (fitz)."""
+    try:
+        doc = fitz.open(pdf_path)
+        text = ""
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            text += page.get_text()
+        doc.close()
+        return text
+    except Exception as e:
+        if "st" in globals() and hasattr(st, "error"):
+            st.error(f"Error extracting text from PDF {pdf_path} using PyMuPDF: {e}")
+        else:
+            print(f"ERROR: Error extracting text from PDF {pdf_path} using PyMuPDF: {e}")
+        return None
+
+def parse_course_details_from_text(text: str, course_title: str) -> Dict[str, Any]:
+    """Parses ECTS and content summary from extracted PDF text."""
+    details = {"ects": None, "content_summary": f"General information for {course_title}"}
+    ects_patterns = [
+        r"ECTS credits:?\s*(\d+([.,]\d+)?)" ,
+        r"ECTS-Kreditpunkte:?\s*(\d+([.,]\d+)?)" ,
+        r"Credits:?\s*(\d+([.,]\d+)?)\s*ECTS" ,
+        r"(\d+([.,]\d+)?)\s*ECTS credits" ,
+        r"(\d+([.,]\d+)?)\s*ECTS" ,
+        r"Leistungspunkte(?:\s*\(ECTS\))?:\s*(\d+([.,]\d+)?)" ,
+        r"Anzahl Credits ECTS:\s*(\d+([.,]\d+)?)"
+    ]
+    for pattern in ects_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            try:
+                ects_str = match.group(1).replace(',', '.')
+                details["ects"] = int(float(ects_str))
+                break
+            except ValueError:
+                continue
     
-    # Working hours between 10 and 18
-    work_hours = list(range(10, 18))
+    if details["ects"] is None: # Try a more general pattern if specific ones fail
+        match_ects_general = re.search(r"(\d+([.,]\d+)?)\s*(?:Credit Points|CP|LP|ECTS)" , text, re.IGNORECASE)
+        if match_ects_general:
+             try:
+                ects_str = match_ects_general.group(1).replace(',', '.')
+                details["ects"] = int(float(ects_str))
+             except ValueError:
+                pass 
+
+    content_keywords = [
+        "Learning objectives", "Course content", "Course description", "Lernziele", 
+        "Kursinhalte", "Beschreibung", "Modulinhalt", "Learning outcomes", "Inhalt", "Contents",
+        "Kurzbeschreibung", "Detailed course description", "Ziele", "Inhalte der Lehrveranstaltung"
+    ]
+    extracted_sections_text = ""
+    text_lower = text.lower() # For case-insensitive search
+    found_keywords_indices = []
+
+    for keyword in content_keywords:
+        try:
+            for match_iter in re.finditer(re.escape(keyword.lower()), text_lower):
+                found_keywords_indices.append(match_iter.start())
+        except Exception: 
+            pass 
     
-    # Convert existing events to a format for easy access
-    busy_slots = _get_busy_time_slots(existing_events)
+    found_keywords_indices = sorted(list(set(found_keywords_indices)))
     
-    # Plan 4 hours per week for each course (2 sessions of 2 hours each)
-    for course in courses:
-        for week in range(weeks):
-            # Calculate the date for this week
-            current_week_start = start_date + timedelta(days=week * 7)
+    if found_keywords_indices:
+        current_extracted_content = []
+        for i, start_index in enumerate(found_keywords_indices):
+            original_keyword_len = 0
+            for kw_check in content_keywords:
+                if text_lower[start_index:].startswith(kw_check.lower()):
+                    original_keyword_len = len(kw_check)
+                    break
             
-            # Try to plan 2 sessions per week
-            sessions_planned = 0
-            attempts = 0
+            keyword_actual_end_index = start_index + original_keyword_len
+            next_section_start_in_original_text = len(text) 
+            if i + 1 < len(found_keywords_indices):
+                next_section_start_in_original_text = found_keywords_indices[i+1]
             
-            while sessions_planned < 2 and attempts < 20:  # Limit attempts to avoid infinite loops
-                attempts += 1
-                
-                # Choose a random day this week
-                random_day = random.randint(0, 6)
-                session_date = current_week_start + timedelta(days=random_day)
-                date_str = session_date.strftime("%Y-%m-%d")
-                
-                # Choose a random start time (must be at least 2 hours before end of working day)
-                available_hours = [
-                    h for h in work_hours[:-1] if 
-                    date_str not in busy_slots or 
-                    (h not in busy_slots.get(date_str, []) and h+1 not in busy_slots.get(date_str, []))
-                ]
-                
-                if not available_hours:
-                    continue  # No available times on this day
-                
-                start_hour = random.choice(available_hours)
-                
-                # Generate study content based on course and learning type
-                study_content = generate_study_content(course, learning_type)
-                
-                # Add session to plan
-                session = {
-                    'course_id': course['id'],
-                    'course_title': course['title'],
-                    'course_code': course['code'],
-                    'date': date_str,
-                    'start_time': f"{start_hour:02d}:00",
-                    'end_time': f"{start_hour+2:02d}:00",
-                    'content': study_content,
-                    'completed': False
-                }
-                
-                study_plan.append(session)
-                
-                # Mark this time as occupied
-                if date_str not in busy_slots:
-                    busy_slots[date_str] = []
-                busy_slots[date_str].extend([start_hour, start_hour + 1])
-                
-                sessions_planned += 1
-    
-    # Sort the plan by date and time
-    study_plan.sort(key=lambda x: (x['date'], x['start_time']))
-    
-    return study_plan
-
-
-def _get_busy_time_slots(events: List[Dict[str, str]]) -> Dict[str, List[int]]:
-    """Extract busy time slots from calendar events."""
-    busy_slots = {}
-    
-    for event in events:
-        date = event['date']
-        hour = int(event['time'].split(':')[0])
+            section_text_original = text[keyword_actual_end_index : min(keyword_actual_end_index + 2000, next_section_start_in_original_text)].strip()
+            
+            lines = section_text_original.split('\n')
+            refined_section_lines = []
+            for line_idx, line in enumerate(lines):
+                if line.strip() == "" and line_idx > 5: 
+                    break 
+                if len(refined_section_lines) >= 15:
+                    break
+                if line.strip(): 
+                    refined_section_lines.append(line.strip())
+            
+            if refined_section_lines:
+                current_extracted_content.append("\n".join(refined_section_lines))
         
-        if date not in busy_slots:
-            busy_slots[date] = []
-        
-        # Block 2 hours for each event
-        busy_slots[date].extend([hour, hour + 1])
+        if current_extracted_content:
+             details["content_summary"] = "\n\n---\n".join(current_extracted_content)
+
+    if not details["content_summary"].strip() or details["content_summary"] == f"General information for {course_title}":
+        title_match = re.search(re.escape(course_title), text, re.IGNORECASE)
+        if title_match:
+            start_content_index = title_match.end()
+            next_major_break = re.search(r"\n\s*\n", text[start_content_index:])
+            end_content_index = start_content_index + (next_major_break.start() if next_major_break else 1500)
+            details["content_summary"] = text[start_content_index : min(len(text), end_content_index)].strip()
+        else:
+            details["content_summary"] = text[:1500].strip()
+
+    if len(details["content_summary"]) > 4000:
+        details["content_summary"] = details["content_summary"][:4000] + "... (truncated)"
     
+    if not details["content_summary"].strip():
+        details["content_summary"] = f"General study for {course_title}. No specific content could be extracted."
+
+    if details["ects"] is None:
+        if "st" in globals() and hasattr(st, "warning"):
+            st.warning(f"Could not automatically determine ECTS for '{course_title}'. Assuming 3 ECTS as default.")
+        else:
+            print(f"WARNING: Could not automatically determine ECTS for '{course_title}'. Assuming 3 ECTS as default.")
+        details["ects"] = 3
+    return details
+
+# --- Scheduling Utilities (Integrated from scheduling_utils.py) ---
+def get_busy_slots(calendar_events: List[Dict[str, Any]]) -> Dict[str, List[Tuple[time_type, time_type]]]:
+    busy_slots: Dict[str, List[Tuple[time_type, time_type]]] = {}
+    for event in calendar_events:
+        try:
+            event_date_str = event["date"]
+            start_time_str = event["start_time"]
+            end_time_str = event["end_time"]
+            start_time_obj = datetime.strptime(start_time_str, "%H:%M").time()
+            end_time_obj = datetime.strptime(end_time_str, "%H:%M").time()
+            if end_time_obj == time_type(0, 0):
+                end_time_obj = time_type(23, 59, 59)
+            if event_date_str not in busy_slots:
+                busy_slots[event_date_str] = []
+            busy_slots[event_date_str].append((start_time_obj, end_time_obj))
+        except KeyError as e:
+            print(f"Event missing expected key: {e} in event: {event}")
+            continue
+        except ValueError as e:
+            print(f"Error parsing date/time in event: {event} - {e}")
+            continue
+    for date_str in busy_slots:
+        busy_slots[date_str].sort()
     return busy_slots
 
+def is_slot_free(start_dt: datetime, duration_minutes: int, daily_busy_slots: List[Tuple[time_type, time_type]]) -> bool:
+    new_session_start_time = start_dt.time()
+    new_session_end_dt = start_dt + timedelta(minutes=duration_minutes)
+    new_session_end_time = new_session_end_dt.time()
+    if new_session_end_dt.date() != start_dt.date() and new_session_end_time != time_type(0,0):
+         return False
+    for busy_start, busy_end in daily_busy_slots:
+        if new_session_start_time < busy_end and new_session_end_time > busy_start:
+            return False
+    return True
 
-def get_course_content(course_code: str) -> List[str]:
-    """
-    Get content from the subject summary for a specific course.
-    """
-    # Example course contents - in a complete implementation we would parse the subject summary document
-    course_contents = {
-        "BWL": [
-            "Geschäftsprozesse und Marketingkonzept",
-            "Marktanalyse",
-            "Marketingstrategie",
-            "Marktleistungsgestaltung",
-            "Preisgestaltung, Kommunikation, Distribution",
-            "Controlling und Innovation",
-            "Management und Managementmodelle",
-            "Entscheidungen und Kommunikation",
-            "Strategie und Entwicklungsmodi",
-            "Struktur und Kultur",
-            "Führung und Governance",
-            "Umwelt und Interaktionsthemen"
-        ],
-        "VWL": [
-            "Grundlagen der ökonomischen Denkweise",
-            "Spezialisierung und Tausch",
-            "Angebot und Nachfrage",
-            "Externe Effekte und die Grenzen des Marktes",
-            "Kosten & Unternehmen auf Märkten mit Vollständiger Konkurrenz",
-            "Unternehmensverhalten auf Monopolmärkten",
-            "Grundlagen der Spieltheorie",
-            "Unternehmensverhalten auf Oligopolmärkten"
-        ],
-        "Buchhaltung": [
-            "Zweck der Buchhaltung, Inventar und Bilanz",
-            "Bilanzkonten und Buchungssatz",
-            "Erfolgsrechnung",
-            "Einzelunternehmen, Warenhandel",
-            "Zahlungsverkehr, Produktionsbetrieb",
-            "Abschreibungen, Wertberichtigungen, Forderungsverluste",
-            "Immobilien, Rechnungsabgrenzung und Rückstellungen",
-            "Wertschriften",
-            "Aktiengesellschaft",
-            "Stille Reserven"
-        ],
-        "Mathe": [
-            "Mathematische Logik Folgen & Reihen",
-            "Folgen & Reihen",
-            "Funktionen",
-            "Differenzierbarkeit I",
-            "Differenzierbarkeit II Extremstellen",
-            "Taylorpolynome",
-            "Funktionen zweier reeller Variablen",
-            "Der Satz über die implizite Funktion",
-            "Extrema von Funktionen zweier Variablen mit & ohne Nebenbedingungen",
-            "Funktionen zweier reeller Variablen",
-            "Deskriptive Statistik und Wahrscheinlichkeitstheorie",
-            "Optimierungsprobleme in Wirtschaft und Statistik"
-        ],
-        "Recht": [
-            "Einführung ins Privatrecht",
-            "Einführung in das Vertragsrecht und Willensbildung",
-            "Vertragsgestaltung und -erfüllung",
-            "Vertragsänderung, -durchführung und -verletzung",
-            "Haftung",
-            "Schlechterfüllung und Gewährleistung",
-            "Produkthaftung und vertragliche Sanktionen",
-            "Erlöschen vertraglicher Pflichten"
-        ]
-    }
-    
-    # Try to identify the course by code
-    for course_name, topics in course_contents.items():
-        if course_name.lower() in course_code.lower():
-            return topics
-    
-    # If no matching course was found, return a general list
-    return ["Kapitel 1", "Kapitel 2", "Kapitel 3", "Kapitel 4", "Kapitel 5"]
+def find_available_slot_for_session(
+    target_date: date_type, 
+    session_duration_minutes: int, 
+    daily_busy_slots: List[Tuple[time_type, time_type]], 
+    preferred_start_hour: int = 8, 
+    preferred_end_hour: int = 20,
+    time_increment_minutes: int = 15
+) -> Optional[time_type]:
+    current_check_time = time_type(preferred_start_hour, 0)
+    day_end_time = time_type(preferred_end_hour, 0)
+    while True:
+        potential_start_dt = datetime.combine(target_date, current_check_time)
+        potential_end_dt = potential_start_dt + timedelta(minutes=session_duration_minutes)
+        if potential_end_dt.time() > day_end_time:
+            if potential_end_dt.date() > target_date or (potential_end_dt.date() == target_date and potential_end_dt.time() > day_end_time):
+                 break
+        if is_slot_free(potential_start_dt, session_duration_minutes, daily_busy_slots):
+            return current_check_time
+        next_check_dt = potential_start_dt + timedelta(minutes=time_increment_minutes)
+        if next_check_dt.date() > target_date:
+            break
+        current_check_time = next_check_dt.time()
+        if current_check_time >= day_end_time and current_check_time > time_type(preferred_start_hour,0):
+             break
+        if current_check_time < time_type(preferred_start_hour,0) and time_increment_minutes > 0 :
+            break
+    return None
 
+# --- OpenAI API Interaction Logic (Integrated) ---
+def generate_weekly_plan_with_openai(
+    course_title: str, course_content_summary: str, learning_type: Optional[str],
+    weekly_study_minutes: int, num_sessions: int, session_duration: int,
+    week_number: int, total_weeks: int) -> Optional[List[Dict[str, Any]]]:
+        
+    if not client or not OPENAI_AVAILABLE:
+        st.error("OpenAI Client ist nicht initialisiert oder die Bibliothek ist nicht verfügbar. KI-Plangenerierung nicht möglich.")
+        return None
+        
+    prompt = f"""Du bist ein erfahrener Lerncoach und Didaktik-Experte, der Studierenden hilft, optimale Lernpläne zu erstellen.
 
-def generate_study_content(course: Dict[str, str], learning_type: str) -> Dict[str, Any]:
-    """
-    Generate study content based on course and learning type.
-    Uses the subject summary for relevant content.
-    """
-    # Get course content from the subject summary
-    course_topics = get_course_content(course['code'])
-    
-    # Choose a random topic
-    topic = random.choice(course_topics) if course_topics else f"Kapitel {random.randint(1, 10)}"
-    
-    # Learning methods based on learning type
-    method_map = {
-        "Visual": [
-            f"Erstelle Mind-Maps zu '{topic}'",
-            f"Arbeite mit farbigen Notizen und Markierungen zu '{topic}'",
-            f"Visualisiere die Prozesse in '{topic}' durch Diagramme",
-            f"Suche Videos und visuelle Materialien zu '{topic}'",
-            f"Erstelle Infografiken zu den Schlüsselkonzepten in '{topic}'"
-        ],
-        "Auditory": [
-            f"Nimm deine Zusammenfassung von '{topic}' auf und höre sie mehrmals",
-            f"Diskutiere '{topic}' mit Kommilitonen in einer Studiengruppe",
-            f"Erkläre die Konzepte von '{topic}' laut, als würdest du sie jemandem beibringen",
-            f"Suche Podcasts oder Vorlesungsaufzeichnungen zu '{topic}'",
-            f"Führe ein Selbstgespräch über '{topic}' und stelle dir selbst Fragen"
-        ],
-        "Reading/Writing": [
-            f"Erstelle eine detaillierte Zusammenfassung von '{topic}'",
-            f"Schreibe Karteikarten zu den Schlüsselkonzepten in '{topic}'",
-            f"Lies die empfohlene Literatur zu '{topic}' und mache Notizen",
-            f"Formuliere Antworten auf mögliche Prüfungsfragen zu '{topic}'",
-            f"Erstelle ein Glossar der wichtigsten Begriffe in '{topic}'"
-        ],
-        "Kinesthetic": [
-            f"Löse praktische Übungen und Fallstudien zu '{topic}'",
-            f"Wende die Konzepte von '{topic}' auf reale Situationen an",
-            f"Erstelle ein physisches Modell oder eine Demonstration zu '{topic}'",
-            f"Bewege dich beim Lernen von '{topic}' (z.B. beim Gehen wiederholen)",
-            f"Führe Rollenspiele oder Simulationen zu '{topic}' durch"
-        ]
-    }
-    
-    # Default methods if the learning type is not recognized
-    default_methods = [
-        f"Wiederhole die Vorlesungsnotizen zu '{topic}'",
-        f"Löse Übungsaufgaben zu '{topic}'",
-        f"Diskutiere '{topic}' mit Kommilitonen",
-        f"Erstelle eine Zusammenfassung von '{topic}'",
-        f"Bereite Fragen zu '{topic}' vor und beantworte sie"
-    ]
-    
-    methods = method_map.get(learning_type, default_methods)
-    
-    # Choose 2-3 methods
-    selected_methods = random.sample(methods, min(3, len(methods)))
-    
-    return {
-        'topic': topic,
-        'methods': selected_methods
-    }
+WICHTIG: Deine Antwort MUSS ein valides JSON-Array sein, das exakt diese Struktur für jede Lerneinheit hat und ALLE Antworten MÜSSEN auf DEUTSCH sein:
+{{
+  "session_number": (eine Ganzzahl, beginnend bei 1),
+  "topic_focus": (ein präziser, spezifischer String mit dem Hauptthema, maximal 100 Zeichen),
+  "suggested_activities": (ein Array mit 3-4 KURZEN aber SPEZIFISCHEN Lernaktivitäten, jede maximal 100 Zeichen),
+  "estimated_duration_minutes": (eine Ganzzahl, sollte {session_duration} sein)
+}}
 
+Kurs: {course_title}
+Zusammenfassung der Kursinhalte/Lernziele:
+{course_content_summary}
 
-def display_study_plan(study_plan: List[Dict[str, Any]]) -> None:
-    """Display the generated study plan."""
-    for session in study_plan:
-        with st.expander(f"{session['date']} | {session['start_time']} - {session['end_time']} | {session['course_code']}"):
-            st.write(f"**Kurs:** {session['course_title']}")
-            st.write(f"**Thema:** {session['content']['topic']}")
-            st.write("**Empfohlene Lernmethoden:**")
-            for method in session['content']['methods']:
-                st.write(f"- {method}")
+Lerntyp des Studierenden: {learning_type if learning_type else 'Nicht spezifiziert'}
+Wöchentlicher Lernaufwand für diesen Kurs: {weekly_study_minutes} Minuten.
+Dieser Plan ist für Woche {week_number} von {total_weeks}.
+Der Lernaufwand soll auf {num_sessions} Lerneinheiten von jeweils ca. {session_duration} Minuten aufgeteilt werden.
 
+ANLEITUNG FÜR HOCHWERTIGE LERNAKTIVITÄTEN:
 
-def save_study_plan_to_calendar(user_id: str, study_plan: List[Dict[str, Any]]) -> bool:
-    """Save the study plan to the calendar and as study tasks."""
+1. KÜRZE: Jede Aktivität MUSS kurz und prägnant sein (maximal 100 Zeichen). Verwende klare, direkte Sprache.
+
+2. SPEZIFITÄT: Trotz Kürze muss jede Aktivität präzise und konkret sein. Vermeide allgemeine Formulierungen.
+
+3. METHODENVIELFALT: Integriere verschiedene Lernmethoden, die zum Thema und Lerntyp passen.
+
+4. HANDLUNGSORIENTIERUNG: Formuliere jede Aktivität als konkrete Handlungsanweisung mit Verb.
+
+5. ANWENDUNGSBEZUG: Verbinde theoretische Konzepte mit praktischen Anwendungen.
+
+Hier ist ein Beispiel für ein korrektes Objekt im Array mit KURZEN, PRÄGNANTEN Aktivitäten:
+{{
+  "session_number": 1,
+  "topic_focus": "Einführung in die Makroökonomie",
+  "suggested_activities": [
+    "Mindmap zu BIP-Komponenten erstellen (20 Min.)",
+    "5 Übungsaufgaben zur BIP-Berechnung lösen (30 Min.)",
+    "Karteikarten mit 10 Fachbegriffen anlegen (20 Min.)",
+    "TED-Talk zu Wirtschaftswachstum ansehen (20 Min.)"
+  ],
+  "estimated_duration_minutes": {session_duration}
+}}
+
+WICHTIG: Halte jede Aktivität KURZ (maximal 100 Zeichen), aber dennoch spezifisch und handlungsorientiert. Deine Antwort darf NUR das JSON-Array enthalten und keine Erklärungen oder zusätzlichen Text.
+"""
+        
     try:
-        for session in study_plan:
-            # Save to calendar
-            event_data = {
-                'title': f"Lernen: {session['course_code']}",
-                'date': session['date'],
-                'time': session['start_time'],
-                'type': "Study Session",
-                'color': "#ccffcc",  # Light green
-                'user_id': user_id
-            }
-            
-            # Save event to calendar
-            save_calendar_event(user_id, event_data)
-            
-            # Also save as study task
-            task_data = {
-                'course_id': session['course_id'],
-                'course_title': session['course_title'],
-                'course_code': session['course_code'],
-                'date': session['date'],
-                'start_time': session['start_time'],
-                'end_time': session['end_time'],
-                'topic': session['content']['topic'],
-                'methods': session['content']['methods']
-            }
-            
-            save_study_task(user_id, task_data)
-            
-        return True
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Du bist ein erfahrener Lerncoach. Erstelle kurze, prägnante und spezifische Lernaktivitäten auf Deutsch. Jede Aktivität darf maximal 100 Zeichen haben."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7
+        )
+        
+        response_content = response.choices[0].message.content
+        
+        if response_content:
+            try:
+                parsed_json = json.loads(response_content)
+                plan_data = None
+                
+                if isinstance(parsed_json, list):
+                    # Fallback für String-Items in der Liste
+                    for i, item in enumerate(parsed_json):
+                        if isinstance(item, str):
+                            parsed_json[i] = {
+                                "session_number": i + 1,
+                                "topic_focus": item[:100] if len(item) > 100 else item,
+                                "suggested_activities": [
+                                    f"Mindmap zu '{item[:30]}' erstellen (25 Min.)",
+                                    f"Wichtige Konzepte recherchieren (20 Min.)",
+                                    f"5 Übungsfragen formulieren (25 Min.)",
+                                    f"Zusammenfassung schreiben (20 Min.)"
+                                ],
+                                "estimated_duration_minutes": session_duration
+                            }
+                    plan_data = parsed_json
+                elif isinstance(parsed_json, dict):
+                    for key in parsed_json:
+                        if isinstance(parsed_json[key], list):
+                            # Fallback für String-Items in verschachtelten Listen
+                            for i, item in enumerate(parsed_json[key]):
+                                if isinstance(item, str):
+                                    parsed_json[key][i] = {
+                                        "session_number": i + 1,
+                                        "topic_focus": item[:100] if len(item) > 100 else item,
+                                        "suggested_activities": [
+                                            f"Mindmap zu '{item[:30]}' erstellen (25 Min.)",
+                                            f"Wichtige Konzepte recherchieren (20 Min.)",
+                                            f"5 Übungsfragen formulieren (25 Min.)",
+                                            f"Zusammenfassung schreiben (20 Min.)"
+                                        ],
+                                        "estimated_duration_minutes": session_duration
+                                    }
+                            plan_data = parsed_json[key]
+                            break
+                    if plan_data is None:
+                        st.error(f"OpenAI API hat JSON zurückgegeben, aber keine Liste von Lerneinheiten gefunden: {response_content}")
+                        return None
+                else:
+                    st.error(f"OpenAI API hat eine unerwartete JSON-Struktur zurückgegeben: {response_content}")
+                    return None
+                
+                validated_plan = []
+                for session in plan_data:
+                    if not all(k in session for k in ["session_number", "topic_focus", "suggested_activities", "estimated_duration_minutes"]):
+                        st.warning(f"Lerneinheit wird übersprungen wegen fehlender Felder: {session}")
+                        continue
+                    
+                    # Stelle sicher, dass topic_focus nicht zu lang ist
+                    if len(session["topic_focus"]) > 100:
+                        session["topic_focus"] = session["topic_focus"][:97] + "..."
+                    
+                    # Stelle sicher, dass suggested_activities eine Liste ist und nicht zu lang
+                    if not isinstance(session["suggested_activities"], list):
+                        if isinstance(session["suggested_activities"], str):
+                            session["suggested_activities"] = [
+                                f"Mindmap erstellen (25 Min.)",
+                                f"Konzepte recherchieren (20 Min.)",
+                                f"Übungsfragen lösen (25 Min.)",
+                                f"Zusammenfassung schreiben (20 Min.)"
+                            ]
+                        else:
+                            st.warning(f"Lerneinheit wird übersprungen wegen ungültiger 'suggested_activities': {session}")
+                            continue
+                    else:
+                        # Kürze zu lange Aktivitäten
+                        for i, activity in enumerate(session["suggested_activities"]):
+                            if len(activity) > 100:
+                                session["suggested_activities"][i] = activity[:97] + "..."
+                    
+                    validated_plan.append(session)
+                return validated_plan
+            except json.JSONDecodeError as e:
+                st.error(f"Fehler beim Dekodieren des JSON von der OpenAI API: {e}\nAntwort war: {response_content}")
+                return None
+        else:
+            st.error("OpenAI API hat eine leere Antwort zurückgegeben.")
+            return None
     except Exception as e:
-        st.error(f"Fehler beim Speichern: {e}")
-        return False
+        st.error(f"Fehler beim Aufruf der OpenAI API: {e}")
+        return None
+
+# --- Main Logic for Generating and Displaying Study Plan (Integrated) ---
+def _generate_complete_study_plan(
+    user_id: str,
+    selected_courses_info: List[Dict[str, Any]],
+    start_date_dt: date_type,
+    weeks: int,
+    learning_type: Optional[str],
+    existing_calendar_events: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    full_study_plan = []
+    all_busy_slots = get_busy_slots(existing_calendar_events)
+    progress_bar = st.progress(0.0)
+    total_steps = len(selected_courses_info) * weeks if weeks > 0 else 1 # Avoid division by zero if weeks is 0
+    current_step = 0
+
+    for course_info in selected_courses_info:
+        st.write(f"Processing course: {course_info['title']} ({course_info['code']})...")
+        if not course_info.get("link_course_info"):
+            st.warning(f"Skipping {course_info['title']} as Kursmerkblatt-Link fehlt.")
+            current_step += weeks
+            progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
+            continue
+            
+        pdf_path = download_pdf(course_info["link_course_info"], course_info["code"])
+        if not pdf_path:
+            st.warning(f"Skipping {course_info['title']} as PDF could not be downloaded.")
+            current_step += weeks
+            progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
+            continue
+
+        pdf_text = extract_text_from_pdf(pdf_path)
+        if os.path.exists(pdf_path): os.remove(pdf_path)
+
+        if not pdf_text:
+            st.warning(f"Skipping {course_info['title']} as text could not be extracted from PDF.")
+            current_step += weeks
+            progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
+            continue
+        
+        parsed_details = parse_course_details_from_text(pdf_text, course_info["title"])
+        ects = parsed_details["ects"]
+        content_summary = parsed_details["content_summary"]
+        
+        weekly_study_minutes_for_course = ects * MINUTES_PER_ECTS_PER_WEEK
+        if weekly_study_minutes_for_course <= 0:
+            st.info(f"Course {course_info['title']} has 0 ECTS or 0 study minutes calculated. Skipping planning.")
+            current_step += weeks
+            progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
+            continue
+            
+        num_sessions_per_week = max(1, round(weekly_study_minutes_for_course / DEFAULT_SESSION_DURATION_MINUTES))
+        actual_session_duration = round(weekly_study_minutes_for_course / num_sessions_per_week)
+
+        st.write(f"  ECTS: {ects}, Weekly Minutes: {weekly_study_minutes_for_course}, Sessions/Week: {num_sessions_per_week} x {actual_session_duration}min")
+
+        for week_idx in range(weeks):
+            current_step += 1
+            progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
+            st.write(f"  Planning Week {week_idx + 1} for {course_info['title']}...")
+            
+            weekly_ai_plan = generate_weekly_plan_with_openai(
+                course_title=course_info["title"],
+                course_content_summary=content_summary,
+                learning_type=learning_type,
+                weekly_study_minutes=weekly_study_minutes_for_course,
+                num_sessions=num_sessions_per_week,
+                session_duration=actual_session_duration,
+                week_number=week_idx + 1,
+                total_weeks=weeks
+            )
+
+            if not weekly_ai_plan:
+                st.warning(f"Could not generate AI plan for {course_info['title']} for week {week_idx + 1}.")
+                for _ in range(num_sessions_per_week):
+                    full_study_plan.append({
+                        "course_id": course_info["id"], "course_title": course_info["title"], "course_code": course_info["code"],
+                        "date": "UNSCHEDULED", "start_time": "N/A", "end_time": "N/A",
+                        "content": {"topic_focus": "Manual planning needed - AI generation failed", "suggested_activities": ["Review course materials."], "estimated_duration_minutes": actual_session_duration},
+                        "completed": False, "status": "ai_failed"
+                    })
+                continue
+
+            current_week_start_date = start_date_dt + timedelta(days=week_idx * 7)
+            day_of_week_preference = list(range(7))
+            random.shuffle(day_of_week_preference)
+
+            sessions_scheduled_this_week = 0
+            for session_content in weekly_ai_plan:
+                if sessions_scheduled_this_week >= num_sessions_per_week: break
+                scheduled_this_session = False
+                for day_offset in day_of_week_preference:
+                    target_schedule_date = current_week_start_date + timedelta(days=day_offset)
+                    busy_slots_for_day = all_busy_slots.get(target_schedule_date.strftime("%Y-%m-%d"), [])
+                    
+                    available_start_time_obj = find_available_slot_for_session(
+                        target_date=target_schedule_date,
+                        session_duration_minutes=session_content.get("estimated_duration_minutes", actual_session_duration),
+                        daily_busy_slots=busy_slots_for_day,
+                        preferred_start_hour=8, preferred_end_hour=22
+                    )
+
+                    if available_start_time_obj:
+                        start_dt_obj = datetime.combine(target_schedule_date, available_start_time_obj)
+                        end_dt_obj = start_dt_obj + timedelta(minutes=session_content.get("estimated_duration_minutes", actual_session_duration))
+                        full_study_plan.append({
+                            "course_id": course_info["id"], "course_title": course_info["title"], "course_code": course_info["code"],
+                            "date": start_dt_obj.strftime("%Y-%m-%d"), "start_time": start_dt_obj.strftime("%H:%M"), "end_time": end_dt_obj.strftime("%H:%M"),
+                            "content": session_content, "completed": False, "status": "scheduled"
+                        })
+                        date_str = start_dt_obj.strftime("%Y-%m-%d")
+                        if date_str not in all_busy_slots: all_busy_slots[date_str] = []
+                        all_busy_slots[date_str].append((start_dt_obj.time(), end_dt_obj.time()))
+                        all_busy_slots[date_str].sort()
+                        scheduled_this_session = True
+                        sessions_scheduled_this_week += 1
+                        break
+                if not scheduled_this_session:
+                    full_study_plan.append({
+                        "course_id": course_info["id"], "course_title": course_info["title"], "course_code": course_info["code"],
+                        "date": "UNSCHEDULED", "start_time": "N/A", "end_time": "N/A",
+                        "content": session_content, "completed": False, "status": "unscheduled_conflict"
+                    })
+                    st.warning(f"Could not find a free slot for one session of {course_info['title']} in week {week_idx + 1}.")
+    
+    progress_bar.progress(1.0)
+    st.success("Study plan generation process complete.")
+    full_study_plan.sort(key=lambda x: (x.get("date", "zzzz"), x.get("start_time", "zz:zz")))
+    return full_study_plan
+
+# --- Streamlit UI Functions (New Version) ---
+def _display_generated_study_plan(study_plan: List[Dict[str, Any]]) -> None:
+    if not study_plan:
+        st.info("Kein Lernplan zum Anzeigen vorhanden.")
+        return
+    for session in study_plan:
+        status_emoji = "✅" if session.get("completed") else ("🗓️" if session.get("status") == "scheduled" else ("⚠️" if session.get("status") == "unscheduled_conflict" else ("🤖" if session.get("status") == "ai_failed" else "📝")))
+        header_text = f"{status_emoji} {session['date']} | {session['start_time']} - {session['end_time']} | {session['course_code']}"
+        if session.get("status") == "unscheduled_conflict": header_text += " (KONFLIKT/UNGEPLANT)"
+        elif session.get("status") == "ai_failed": header_text += " (KI-FEHLER)"
+        with st.expander(header_text):
+            st.markdown(f"**Kurs:** {session['course_title']}")
+            content = session.get("content", {})
+            st.markdown(f"**Thema/Fokus:** {content.get('topic_focus', 'N/A')}")
+            st.markdown("**Vorgeschlagene Aktivitäten:**")
+            activities = content.get("suggested_activities", [])
+            if activities and isinstance(activities, list):
+                for activity in activities:
+                    st.markdown(f"- {activity}")
+            else:
+                st.markdown("- Keine spezifischen Aktivitäten generiert.")
+            st.markdown(f"**Geschätzte Dauer:** {content.get('estimated_duration_minutes', 'N/A')} Minuten")
+            if session.get("status") != "scheduled": st.caption(f"Status: {session['status']}")
+
+def _handle_new_study_plan_saving(user_id: str) -> None:
+    if 'new_study_plan' in st.session_state and st.session_state.new_study_plan:
+        plan_to_save = [s for s in st.session_state.new_study_plan if s.get("status") == "scheduled"]
+        if not plan_to_save:
+            st.warning("Keine planbaren Lerneinheiten zum Speichern vorhanden.")
+            return
+        num_saved, num_failed = 0, 0
+        for session in plan_to_save:
+            try:
+                # Wichtig: Verwende 'type' statt 'event_type', da die save_calendar_event Funktion
+                # event_data.get('type') verwendet, um den Wert für event_type in der Datenbank zu setzen
+                event_data = {
+                    'title': f"Lernen (KI): {session['course_code']} - {session['content'].get('topic_focus', 'Allgemein')[:30]}",
+                    'date': session['date'], 
+                    'time': session['start_time'],
+                    'end_time': session['end_time'],
+                    'type': "Study Session (AI)",  # WICHTIG: Verwende 'type' statt 'event_type'
+                    'color': "#A0E7E5", 
+                    'user_id': user_id,
+                    'priority': 2  # Medium priority
+                }
+                save_calendar_event(user_id, event_data)
+                
+                task_data = {
+                    'course_id': session['course_id'], 
+                    'course_title': session['course_title'], 
+                    'course_code': session['course_code'],
+                    'date': session['date'], 
+                    'start_time': session['start_time'], 
+                    'end_time': session['end_time'],
+                    'topic': session['content'].get('topic_focus', 'N/A'),
+                    'methods': json.dumps(session['content'].get('suggested_activities', [])),
+                    'status': 'Pending', 
+                    'is_ai_generated': True
+                }
+                save_study_task(user_id, task_data)
+                num_saved += 1
+            except Exception as e:
+                st.error(f"Fehler beim Speichern der Session für {session['course_code']} am {session['date']}: {e}")
+                num_failed += 1
+        
+        if num_saved > 0: 
+            st.success(f"{num_saved} Lerneinheiten gespeichert!")
+        if num_failed > 0: 
+            st.error(f"{num_failed} Lerneinheiten konnten nicht gespeichert werden.")
+        
+        # Nur wenn mindestens eine Einheit gespeichert wurde, Plan löschen und Seite neu laden
+        if num_saved > 0:
+            del st.session_state.new_study_plan
+            st.rerun()
+    else:
+        st.error("Kein Lernplan zum Speichern vorhanden.")
 
 
-def display_study_tasks(user_id: str) -> None:
-    """Display the user's study tasks and enable checking, rescheduling, and deleting."""
-    st.subheader("Meine Lernaufgaben")
+def _display_ai_learning_plan_generator(user_id: str, learning_type: Optional[str]) -> None:
+    st.subheader("Dein intelligenter Lernplan")
+    if learning_type: 
+        st.write(f"Dein Lerntyp: **{learning_type}** (wird berücksichtigt)")
+    else: 
+        st.write("Lerntyp nicht festgelegt. Plan wird allgemeiner generiert.")
     
-    # Load tasks from database
-    user_tasks = get_study_tasks(user_id)
-    
-    if not user_tasks:
-        st.info("Du hast noch keine Lernaufgaben. Erstelle einen Lernplan, um loszulegen!")
+    # Prüfe zuerst, ob bereits ein Plan in der Session existiert
+    if "new_study_plan" in st.session_state and st.session_state.new_study_plan:
+        st.success("Ein generierter Lernplan ist verfügbar!")
+        st.subheader("Generierter Lernplan")
+        _display_generated_study_plan(st.session_state.new_study_plan)
+        
+        # Speichern-Button - WICHTIG: Dieser Teil muss auf jeden Fall ausgeführt werden
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("✅ LERNPLAN JETZT SPEICHERN", key="save_new_plan_button", type="primary", use_container_width=True):
+                _handle_new_study_plan_saving(user_id)
+        
+        # Optionaler Button zum Löschen des Plans aus der Session
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🗑️ Lernplan verwerfen und neuen erstellen", key="discard_plan_button"):
+                del st.session_state.new_study_plan
+                st.rerun()
+        
+        # Wichtig: Return hier, um den Rest der Funktion zu überspringen
         return
     
-    # Split tasks into upcoming and past
-    today = datetime.now().date()
-    upcoming_tasks, past_tasks = _split_tasks_by_date(user_tasks, today)
+    # Nur wenn kein Plan in der Session ist, zeige das Formular zur Plangenerierung an
+    user_courses = get_user_courses(user_id)
+    if not user_courses:
+        st.info("Keine Kurse ausgewählt. Bitte zuerst Kurse in den Einstellungen auswählen.")
+        return
     
-    # Display upcoming tasks
-    if upcoming_tasks:
-        st.write("### Anstehende Lernaufgaben")
-        for task in upcoming_tasks:
-            col1, col2, col3 = st.columns([4, 1, 1])
-            
-            with col1:
-                _display_task_details(task, user_id)
-            
-            with col2:
-                _handle_task_completion(task)
-            
-            with col3:
-                _handle_task_deletion(task)
-    
-    # Display past tasks
-    if past_tasks:
-        with st.expander("Vergangene Lernaufgaben"):
-            for task in past_tasks:
-                status = "✅" if task['completed'] else "❌"
-                st.write(f"{status} **{task['date']}** | {task['start_time']} - {task['end_time']} | {task['course_code']} - {task['topic']}")
-
-
-def _split_tasks_by_date(
-    tasks: List[Dict[str, Any]], 
-    reference_date: datetime.date
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Split tasks into upcoming and past based on date."""
-    upcoming = []
-    past = []
-    
-    for task in tasks:
-        task_date = datetime.strptime(task['date'], "%Y-%m-%d").date()
-        if task_date >= reference_date:
-            upcoming.append(task)
-        else:
-            past.append(task)
-    
-    # Sort by date and time
-    upcoming.sort(key=lambda x: (x['date'], x['start_time']))
-    past.sort(key=lambda x: (x['date'], x['start_time']), reverse=True)
-    
-    return upcoming, past
-
-
-def _display_task_details(task: Dict[str, Any], user_id: str) -> None:
-    """Display details of a task and provide rescheduling options."""
-    status = "✅" if task['completed'] else "⏳"
-    expander_label = f"{status} {task['date']} | {task['start_time']} - {task['end_time']} | {task['course_code']}"
-    
-    with st.expander(expander_label):
-        st.write(f"**Kurs:** {task['course_title']}")
-        st.write(f"**Thema:** {task['topic']}")
-        st.write("**Empfohlene Lernmethoden:**")
-        for method in task['methods']:
-            st.write(f"- {method}")
+    with st.form("generate_new_study_plan_form"):
+        st.write("Wähle Kurse für den Lernplan:")
+        selected_courses_data = []
+        for course in user_courses:
+            if st.checkbox(f"{course['meeting_code']} - {course['title']}", value=True, key=f"course_select_{course['course_id']}"):
+                if not course.get("link_course_info"):
+                    st.warning(f"Kursmerkblatt-Link für {course['title']} fehlt. Kann nicht automatisch beplant werden.")
+                    continue
+                selected_courses_data.append({
+                    "id": course["course_id"], 
+                    "title": course["title"], 
+                    "code": course["meeting_code"], 
+                    "link_course_info": course["link_course_info"]
+                })
         
-        # Rescheduling function
-        st.write("---")
-        st.write("**Termin verschieben:**")
+        today = datetime.now().date()
+        default_start = today + timedelta(days=(7 - today.weekday())) if today.weekday() >= 5 else today
+        start_date_input = st.date_input("Startdatum", default_start)
+        weeks_input = st.slider("Anzahl Wochen", 1, 12, 4)
+        submit_button = st.form_submit_button("Lernplan mit KI generieren")
+    
+    if submit_button:
+        if not selected_courses_data:
+            st.warning("Bitte wähle mindestens einen Kurs mit gültigem Merkblatt-Link aus.")
+            return
+            
+        if not client or not OPENAI_AVAILABLE:
+            st.error("OpenAI Client nicht initialisiert/verfügbar. Plangenerierung nicht möglich.")
+            return
         
-        # Get available time slots
+        # Temporärer Container für die Info-Meldung
+        info_container = st.empty()
+        info_container.info("Lernplan wird generiert... Dies kann einige Minuten dauern.")
+        
         calendar_events = get_calendar_events(user_id)
-        busy_slots = _get_busy_time_slots(calendar_events)
+        valid_calendar_events = []
         
-        # Date selection for rescheduling
-        new_date = st.date_input(
-            "Neues Datum", 
-            datetime.strptime(task['date'], "%Y-%m-%d").date(),
-            key=f"new_date_{task['id']}"
-        )
-        
-        # Find available time slots for the selected date
-        date_str = new_date.strftime("%Y-%m-%d")
-        work_hours = list(range(8, 20))  # 8:00 - 20:00
-        
-        # Find free time slots
-        available_hours = [
-            h for h in work_hours[:-1] if
-            date_str not in busy_slots or
-            (h not in busy_slots.get(date_str, []) and h+1 not in busy_slots.get(date_str, []))
-        ]
-        
-        # Format hours for display
-        time_options = [f"{h:02d}:00" for h in available_hours]
-        
-        # If no free slots are available, show all times
-        if not time_options:
-            time_options = [f"{h:02d}:00" for h in work_hours[:-1]]
-        
-        # Select start time
-        try:
-            default_index = time_options.index(task['start_time']) if task['start_time'] in time_options else 0
-        except (ValueError, IndexError):
-            default_index = 0
-            
-        new_start_time = st.selectbox(
-            "Neue Startzeit", 
-            time_options,
-            index=default_index,
-            key=f"new_start_{task['id']}"
-        )
-        
-        # Calculate end time (2 hours after start time)
-        start_hour = int(new_start_time.split(':')[0])
-        new_end_time = f"{start_hour+2:02d}:00"
-        
-        st.write(f"Neue Endzeit: {new_end_time}")
-        
-        # Button to save changes
-        if st.button("Termin verschieben", key=f"move_{task['id']}"):
-            # Prepare data for update
-            update_data = {
-                'date': date_str,
-                'start_time': new_start_time,
-                'end_time': new_end_time
-            }
-            
-            # Update task in database
-            if update_study_task(task['id'], update_data):
-                st.success("Termin erfolgreich verschoben!")
-                st.rerun()
-            else:
-                st.error("Fehler beim Verschieben des Termins.")
-
-
-def _handle_task_completion(task: Dict[str, Any]) -> None:
-    """Handle marking a task as completed."""
-    completed = st.checkbox("Erledigt", value=task['completed'], key=f"task_{task['id']}")
-    
-    if completed != task['completed']:
-        # Update status in database
-        if update_study_task_status(task['id'], completed):
-            st.success("Status aktualisiert")
-            st.rerun()
-
-
-def _handle_task_deletion(task: Dict[str, Any]) -> None:
-    """Handle deleting a task."""
-    if st.button("Löschen", key=f"delete_{task['id']}"):
-        # Delete task from database
-        if delete_study_task(task['id']):
-            st.success(f"Aufgabe gelöscht")
-            st.rerun()
+        if isinstance(calendar_events, list):
+            for evt in calendar_events:
+                if isinstance(evt, dict) and all(k in evt for k in ["date", "start_time", "end_time"]):
+                    valid_calendar_events.append(evt)
+                elif isinstance(evt, dict) and "date" in evt and "time" in evt and "end_time" not in evt:
+                    try:
+                        start_t = datetime.strptime(evt["time"], "%H:%M").time()
+                        end_t = (datetime.combine(date_type.min, start_t) + timedelta(hours=1)).time()
+                        evt["start_time"] = evt["time"]
+                        evt["end_time"] = end_t.strftime("%H:%M")
+                        valid_calendar_events.append(evt)
+                    except Exception:
+                        st.warning(f"Kalenderereignis ignoriert/konnte nicht angepasst werden: {evt}")
         else:
-            st.error("Fehler beim Löschen der Aufgabe")
+            st.error("Fehler beim Abrufen der Kalenderereignisse.")
+        
+        generated_plan = _generate_complete_study_plan(
+            user_id=user_id, 
+            selected_courses_info=selected_courses_data,
+            start_date_dt=start_date_input, 
+            weeks=weeks_input, 
+            learning_type=learning_type,
+            existing_calendar_events=valid_calendar_events
+        )
+        
+        # Info-Meldung entfernen
+        info_container.empty()
+        
+        if generated_plan:
+            st.session_state.new_study_plan = generated_plan
+            st.success(f"KI-Lernplan für {len(selected_courses_data)} Kurse über {weeks_input} Wochen erstellt!")
+            st.rerun()  # Wichtig: Seite neu laden, um den neuen UI-Fluss zu starten
+        else:
+            st.error("Lernplan konnte nicht generiert werden.")
+
+
+# --- Main Entry Point --- (Replaces original display_learning_suggestions)
+def display_learning_suggestions(user_id: str) -> None:
+    st.title("KI-gestützte Lernplanerstellung")
+    learning_type, completed = get_learning_type_status(user_id)
+    if not completed:
+        st.warning("Dein Lerntyp ist noch nicht festgelegt. Für optimale Vorschläge, beantworte bitte zuerst die Fragen zum Lerntyp. Du kannst den Plan aber auch ohne Lerntyp erstellen.")
+
+    tab1, tab2 = st.tabs(["Neuen Lernplan generieren", "Meine Lernaufgaben"])
+    with tab1:
+        _display_ai_learning_plan_generator(user_id, learning_type if completed else None)
+    with tab2:
+        display_study_tasks(user_id) # Assuming this is the updated/kept version
+
+# --- Study Tasks Display (Adapted from new_suggestions, kept for completeness) ---
+
+# Note: The original learning_suggestions.py had functions like:
+# _display_learning_plan_generator, _handle_study_plan_generation, 
+# _handle_study_plan_saving, generate_study_plan, _get_busy_time_slots (old version),
+# get_course_content, generate_study_content, display_study_plan, save_study_plan_to_calendar
+# These have been effectively replaced by the new AI-driven workflow and helper functions above.
+# They are not included in this merged version to avoid redundancy and use the new system.
+def display_study_tasks(user_id: str) -> None:
+    st.subheader("Meine Lernaufgaben")
+    
+    user_tasks = get_study_tasks(user_id)
+    if not user_tasks:
+        st.info("Du hast noch keine Lernaufgaben.")
+        return
+    
+    # Aktuelles Datum für die Kategorisierung
+    today = datetime.now().date()
+    today_str = today.strftime("%Y-%m-%d")
+    
+    # Aufgaben nach Datum kategorisieren
+    overdue_tasks = []
+    today_tasks = []
+    future_tasks = []
+    
+    for task in user_tasks:
+        task_date_str = task.get('date', '')
+        try:
+            task_date = datetime.strptime(task_date_str, "%Y-%m-%d").date()
+            if task_date < today:
+                overdue_tasks.append(task)
+            elif task_date == today:
+                today_tasks.append(task)
+            else:
+                future_tasks.append(task)
+        except (ValueError, TypeError):
+            # Bei ungültigem Datum, Aufgabe zu "Heute" hinzufügen
+            today_tasks.append(task)
+    
+    # Sortieren nach Datum und Zeit
+    overdue_tasks.sort(key=lambda x: (x.get('date', 'zzzz'), x.get('start_time', 'zz:zz')))
+    today_tasks.sort(key=lambda x: x.get('start_time', 'zz:zz'))
+    future_tasks.sort(key=lambda x: (x.get('date', 'zzzz'), x.get('start_time', 'zz:zz')))
+    
+    # Tab-System für die verschiedenen Kategorien
+    tab1, tab2, tab3 = st.tabs(["Heute", "Überfällig", "Zukünftig"])
+    
+    # Funktion zum Anzeigen einer Aufgabenliste mit einheitlichem Format
+    def display_task_list(tasks, category):
+        if not tasks:
+            st.info(f"Keine {category} Lernaufgaben vorhanden.")
+            return
+        
+        for task in tasks:
+            task_id = task.get('id', random.randint(10000, 99999))
+            is_ai = task.get('is_ai_generated', False)
+            ai_marker = "🤖" if is_ai else ""
+            
+            # Status bestimmen für die Checkbox
+            current_status = task.get('status', 'Pending')
+            is_completed = task.get('completed', False)  # Verwende den tatsächlichen completed-Wert
+            
+            # Aufgabencontainer mit Checkbox
+            col1, col2 = st.columns([0.05, 0.95])
+            with col1:
+                # Checkbox zum Abhaken
+                if st.checkbox("", value=is_completed, key=f"checkbox_{task_id}", 
+                               help="Aufgabe als erledigt markieren"):
+                    if not is_completed:
+                        # Übergebe booleschen Wert True statt String
+                        if update_study_task_status(task_id, True):
+                            st.success(f"Aufgabe '{task.get('topic')}' als erledigt markiert!")
+                            st.rerun()
+                else:
+                    if is_completed:
+                        # Übergebe booleschen Wert False statt String
+                        if update_study_task_status(task_id, False):
+                            st.info(f"Aufgabe '{task.get('topic')}' wieder als ausstehend markiert.")
+                            st.rerun()
+            
+            # Aufgabendetails
+            with col2:
+                task_header = f"{ai_marker} {task.get('date', 'Kein Datum')} | {task.get('start_time', '')} - {task.get('end_time', '')} | {task.get('course_code', 'N/A')}"
+                
+                # Stil für erledigte Aufgaben
+                if is_completed:
+                    task_header = f"~~{task_header}~~"
+                
+                with st.expander(task_header):
+                    st.markdown(f"**Kurs:** {task.get('course_title', 'N/A')} ({task.get('course_code', 'N/A')})")
+                    
+                    # Thema mit Durchstreichung, wenn erledigt
+                    topic_text = task.get('topic', 'N/A')
+                    if is_completed:
+                        st.markdown(f"**Thema:** ~~{topic_text}~~")
+                    else:
+                        st.markdown(f"**Thema:** {topic_text}")
+                    
+                    st.markdown(f"**Dauer:** {task.get('start_time', 'N/A')} - {task.get('end_time', 'N/A')}")
+                    
+                    # Aktivitäten anzeigen
+                    st.markdown("**Aktivitäten:**")
+                    methods = task.get('methods', [])
+                    if isinstance(methods, str):
+                        try: 
+                            methods = json.loads(methods)
+                        except: 
+                            methods = [methods]
+                    
+                    if isinstance(methods, list) and methods:
+                        for method in methods:
+                            # Durchstreichen, wenn erledigt
+                            if is_completed:
+                                st.markdown(f"- ~~{method}~~")
+                            else:
+                                st.markdown(f"- {method}")
+                    else:
+                        st.write("Keine spezifischen Aktivitäten.")
+                    
+                    # Status-Dropdown und Löschen-Button
+                    col_status, col_delete = st.columns(2)
+                    
+                    with col_status:
+                        status_options = ["Pending", "In Progress", "Completed", "Cancelled"]
+                        status_labels = {
+                            "Pending": "Ausstehend",
+                            "In Progress": "In Bearbeitung",
+                            "Completed": "Abgeschlossen",
+                            "Cancelled": "Abgebrochen"
+                        }
+                        status_values = {
+                            "Pending": False,
+                            "In Progress": False,
+                            "Completed": True,
+                            "Cancelled": False
+                        }
+                        
+                        try:
+                            current_status_index = status_options.index(current_status)
+                        except ValueError:
+                            current_status_index = 0
+                        
+                        new_status = st.selectbox(
+                            "Status", 
+                            options=status_options,
+                            format_func=lambda x: status_labels.get(x, x),
+                            index=current_status_index, 
+                            key=f"status_{task_id}"
+                        )
+                        
+                        if new_status != current_status:
+                            # Konvertiere Status-String in booleschen Wert für completed
+                            new_completed = status_values.get(new_status, False)
+                            if update_study_task_status(task_id, new_completed):
+                                st.success(f"Status für Aufgabe '{task.get('topic')}' aktualisiert!")
+                                st.rerun()
+                            else:
+                                st.error("Fehler beim Aktualisieren des Status.")
+                    
+                    with col_delete:
+                        if st.button("Löschen", key=f"delete_{task_id}"):
+                            if delete_study_task(task_id):
+                                st.success(f"Aufgabe '{task.get('topic')}' gelöscht!")
+                                st.rerun()
+                            else:
+                                st.error("Fehler beim Löschen der Aufgabe.")
+    
+    # Anzeigen der Aufgaben in den entsprechenden Tabs
+    with tab1:
+        st.header("Heutige Aufgaben")
+        st.markdown(f"**Datum: {today.strftime('%d.%m.%Y')}**")
+        display_task_list(today_tasks, "heutige")
+    
+    with tab2:
+        st.header("Überfällige Aufgaben")
+        st.markdown("**Aufgaben, die vor dem heutigen Tag geplant waren**")
+        display_task_list(overdue_tasks, "überfällige")
+    
+    with tab3:
+        st.header("Zukünftige Aufgaben")
+        st.markdown("**Aufgaben für die kommenden Tage**")
+        display_task_list(future_tasks, "zukünftige")
+    
+    # Zusammenfassung anzeigen
+    st.markdown("---")
+    st.markdown(f"""
+    **Zusammenfassung:**
+    - Heutige Aufgaben: {len(today_tasks)}
+    - Überfällige Aufgaben: {len(overdue_tasks)}
+    - Zukünftige Aufgaben: {len(future_tasks)}
+    - Gesamt: {len(user_tasks)}
+    """)
+
+# If this file is run directly for testing (streamlit run learning_suggestions.py):
+if __name__ == "__main__":
+    # Mock user_id for testing. In a real app, this comes from session state after login.
+    mock_user_id = st.session_state.get("user_id", "test_user_standalone")
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = mock_user_id
+
+    # Minimal setup for standalone run if needed, or rely on main.py to set up session_state
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = True # Assume logged in for standalone test
+    
+    # Check if learning type is already set, if not, provide a mock
+    if 'learning_type_status_completed' not in st.session_state:
+        st.session_state.learning_type_status_completed = True
+        st.session_state.learning_type_status_type = "Visual"
+
+    # Override database/API calls with mocks for standalone testing if desired
+    # This part is complex to maintain here. For robust testing, use a proper test framework.
+    # For simplicity, we'll assume the actual DB functions are available or will fail gracefully.
+    
+    # Example: Mock get_learning_type_status if it's not fully set up
+    _original_get_learning_type_status = get_learning_type_status
+    def _mock_get_learning_type_status(uid):
+        completed = st.session_state.get('learning_type_status_completed', False)
+        ltype = st.session_state.get('learning_type_status_type', None)
+        if not completed:
+            # Simulate going through learning type questionnaire
+            # from learning_type import display_learning_type # This would be complex here
+            # For now, just return a default if not completed
+            return "Visual", True # Mock as completed for testing flow
+        return ltype, completed
+    # get_learning_type_status = _mock_get_learning_type_status
+
+    display_learning_suggestions(mock_user_id)
+
+    # get_learning_type_status = _original_get_learning_type_status # Restore if needed

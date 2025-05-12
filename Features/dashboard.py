@@ -242,8 +242,7 @@ def main(cookies):
         pages = {
             "Dashboard": display_dashboard,
             "Calendar": "calendar_study.display_calendar",
-            "Courses": "courses.display_courses",
-            "Learning Type": "learning_type.display_learning_type",
+            "Courses": "api_connection.display_hsg_api_page",
             "Learning Tips": "learning_tipps.display_learning_tips",
             "Learning Suggestions": "learning_suggestions.display_learning_suggestions",
             "Prokrastinations-Risiko": "procrastination_risk.display_procrastination_assessment"

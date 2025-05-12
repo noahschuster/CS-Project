@@ -155,26 +155,13 @@ def save_user_course_selections(user_id, course_ids):
     finally:
         session.close()
 
-def create_demo_courses_from_summary():
-    status = st.empty()
-    status.info("Creating demo courses...")
-    
-    from demo_courses import create_demo_courses
-    try:
-        courses_added = create_demo_courses()
-        status.success(f"Successfully created {courses_added} demo courses!")
-        return courses_added > 0
-    except Exception as e:
-        status.error(f"Error creating demo courses: {str(e)}")
-        return False
-
-def display_hsg_api_page():
+def display_hsg_api_page(user_id):
     st.title("HSG Courses")
     
     if not st.session_state.get('logged_in', False):
         st.warning("Please log in to access this page")
         return
-
+    
     user_id = st.session_state.get('user_id')
     username = st.session_state.get('username')
     
@@ -194,9 +181,6 @@ def display_hsg_api_page():
             with col1:
                 if st.button("Fetch Latest Courses from HSG API"):
                     fetch_and_store_courses()
-            with col2:
-                if st.button("Create Demo Courses"):
-                    create_demo_courses_from_summary()
         
         if course_count > 0:
             tab1, tab2 = st.tabs(["Select Courses", "My Schedule"])
@@ -219,7 +203,7 @@ def display_hsg_api_page():
                     'language_id': c.language_id,
                     'selected': 1 if c.course_id in user_course_ids else 0
                 } for c in all_courses])
-
+                
                 search_term = st.text_input("Search courses by title or code:", key="search_courses")
                 
                 filtered_df = df_courses
@@ -308,7 +292,6 @@ def display_hsg_api_page():
         st.error(f"Error accessing database: {str(e)}")
     finally:
         session.close()
-
 
 if __name__ == "__main__":
     display_hsg_api_page()

@@ -1,414 +1,188 @@
-# procrastination_risk.py
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
-import random
-from database_manager import get_db_session, User
+import joblib
+import os
 
-def display_procrastination_assessment(user_id):
-    """
-    Displays the procrastination risk assessment page and handles the questionnaire.
-    This function allows users to evaluate their procrastination risk level
-    and provides personalized recommendations based on their answers.
-    """
-    st.title("Prokrastinations-Risiko Assessment")
-    
-    # Check if assessment already completed
-    if 'procrastination_assessment_completed' in st.session_state:
-        display_procrastination_results(user_id)
-        return
-    
-    st.write("Beantworte die folgenden Fragen, damit wir dein persönliches Prokrastinations-Risiko einschätzen können.")
-    st.write("Deine ehrlichen Antworten helfen uns, dir personalisierte Empfehlungen zu geben.")
-    
-    # Create the assessment form
-    with st.form("procrastination_assessment_form"):
-        # Study year
-        study_year = st.selectbox(
-            "In welchem Studienjahr befindest du dich?",
-            options=["1. Jahr", "2. Jahr", "3. Jahr", "4. Jahr", "5+ Jahre"]
-        )
-        
-        # Assignment delay frequency
-        assignment_delay = st.select_slider(
-            "Wie oft verschiebst du die Bearbeitung von Aufgaben auf später?",
-            options=["Nie", "Selten", "Manchmal", "Oft", "Sehr oft"]
-        )
-        
-        # Procrastination reasons
-        procrastination_reasons = st.multiselect(
-            "Aus welchen Gründen schiebst du Aufgaben auf? (Mehrfachauswahl möglich)",
-            options=[
-                "Perfektionismus",
-                "Angst vor Misserfolg",
-                "Mangelnde Motivation",
-                "Ablenkung durch soziale Medien",
-                "Überforderung",
-                "Langeweile",
-                "Andere Prioritäten"
-            ]
-        )
-        
-        # Last-minute exam preparation
-        last_minute_prep = st.select_slider(
-            "Wie oft lernst du erst kurz vor Prüfungen?",
-            options=["Nie", "Selten", "Manchmal", "Oft", "Immer"]
-        )
-        
-        # Study hours per week
-        study_hours = st.slider(
-            "Wie viele Stunden pro Woche lernst du durchschnittlich?",
-            min_value=0, max_value=60, value=15, step=5
-        )
-        
-        # Use of time management
-        time_management = st.select_slider(
-            "Wie konsequent nutzt du Zeitmanagement-Techniken?",
-            options=["Gar nicht", "Kaum", "Gelegentlich", "Regelmäßig", "Sehr konsequent"]
-        )
-        
-        # Procrastination management training
-        procrastination_training = st.radio(
-            "Hast du bereits an Trainings zur Prokrastinationsbewältigung teilgenommen?",
-            options=["Nein", "Ja, aber nicht hilfreich", "Ja, teilweise hilfreich", "Ja, sehr hilfreich"]
-        )
-        
-        # Procrastination recovery strategies
-        recovery_strategies = st.multiselect(
-            "Welche Strategien nutzt du, um Prokrastination zu überwinden? (Mehrfachauswahl möglich)",
-            options=[
-                "To-Do-Listen",
-                "Pomodoro-Technik",
-                "Belohnungssystem",
-                "Lerngruppen",
-                "Fristen setzen",
-                "Ablenkungen eliminieren",
-                "Keine spezifische Strategie"
-            ]
-        )
-        
-        # Hours spent on mobile non-academic
-        mobile_hours = st.slider(
-            "Wie viele Stunden verbringst du täglich mit nicht-akademischen Aktivitäten auf dem Smartphone?",
-            min_value=0, max_value=12, value=3, step=1
-        )
-        
-        # Study session distractions
-        distractions = st.multiselect(
-            "Was lenkt dich während des Lernens am häufigsten ab? (Mehrfachauswahl möglich)",
-            options=[
-                "Soziale Medien",
-                "Nachrichten/Messenger",
-                "Streaming-Dienste",
-                "Videospiele",
-                "Freunde/Familie",
-                "Haushaltsaufgaben",
-                "Gedanken/Tagträume"
-            ]
-        )
-        
-        # Submit button
-        submitted = st.form_submit_button("Auswertung starten")
-        
-        if submitted:
-            # Calculate risk score (this would be replaced by ML model prediction)
-            risk_score = calculate_risk_score(
-                study_year, assignment_delay, procrastination_reasons,
-                last_minute_prep, study_hours, time_management,
-                procrastination_training, recovery_strategies,
-                mobile_hours, distractions
-            )
-            
-            # Store results in session state
-            st.session_state.procrastination_assessment_completed = True
-            st.session_state.procrastination_risk_score = risk_score
-            st.session_state.procrastination_data = {
-                'study_year': study_year,
-                'assignment_delay': assignment_delay,
-                'procrastination_reasons': procrastination_reasons,
-                'last_minute_prep': last_minute_prep,
-                'study_hours': study_hours,
-                'time_management': time_management,
-                'procrastination_training': procrastination_training,
-                'recovery_strategies': recovery_strategies,
-                'mobile_hours': mobile_hours,
-                'distractions': distractions
-            }
-            
-            # Save to database (would be implemented when database schema is updated)
-            # save_procrastination_assessment(user_id, st.session_state.procrastination_data, risk_score)
-            
-            # Refresh page to show results
-            st.rerun()
+# Pfad zum Modell
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "procrastination_risk_model.joblib")
 
-def calculate_risk_score(study_year, assignment_delay, procrastination_reasons,
-                         last_minute_prep, study_hours, time_management,
-                         procrastination_training, recovery_strategies,
-                         mobile_hours, distractions):
-    """
-    Placeholder for ML model that would calculate procrastination risk score.
-    This function will be replaced by the actual ML model implementation.
-    
-    Returns a risk score between 0-100.
-    """
-    # This is a simplified scoring algorithm - would be replaced by ML model
-    score = 0
-    
-    # Assignment delay frequency impact
-    delay_map = {"Nie": 0, "Selten": 5, "Manchmal": 10, "Oft": 15, "Sehr oft": 20}
-    score += delay_map.get(assignment_delay, 10)
-    
-    # Number of procrastination reasons impact
-    score += min(len(procrastination_reasons) * 5, 20)
-    
-    # Last-minute exam preparation impact
-    prep_map = {"Nie": 0, "Selten": 5, "Manchmal": 10, "Oft": 15, "Immer": 20}
-    score += prep_map.get(last_minute_prep, 10)
-    
-    # Study hours impact (inverse relationship)
-    score += max(0, 20 - (study_hours / 3))
-    
-    # Time management impact (inverse relationship)
-    time_map = {"Gar nicht": 20, "Kaum": 15, "Gelegentlich": 10, "Regelmäßig": 5, "Sehr konsequent": 0}
-    score += time_map.get(time_management, 10)
-    
-    # Mobile hours impact
-    score += min(mobile_hours * 2, 20)
-    
-    # Recovery strategies impact (inverse relationship)
-    if "Keine spezifische Strategie" in recovery_strategies:
-        score += 10
-    else:
-        score -= min(len(recovery_strategies) * 2, 10)
-    
-    # Normalize to 0-100 scale
-    normalized_score = min(max(int(score * 2.5), 0), 100)
-    
-    return normalized_score
+# Laden des Modells
+try:
+    model = joblib.load(MODEL_PATH)
+except FileNotFoundError:
+    st.error(f"Modell konnte nicht unter {MODEL_PATH} gefunden werden. Bitte stellen Sie sicher, dass die Modelldatei vorhanden ist.")
+    model = None
+except Exception as e:
+    st.error(f"Ein Fehler ist beim Laden des Modells aufgetreten: {e}")
+    model = None
 
-def display_procrastination_results(user_id):
-    """Displays the results of the procrastination risk assessment."""
-    risk_score = st.session_state.procrastination_risk_score
-    
-    st.subheader("Dein Prokrastinations-Risiko Ergebnis")
-    
-    # Display risk score with color-coded gauge
-    col1, col2 = st.columns([1, 3])
-    
-    with col1:
-        if risk_score < 30:
-            st.markdown(f"<h1 style='color:green;text-align:center;'>{risk_score}%</h1>", unsafe_allow_html=True)
-        elif risk_score < 70:
-            st.markdown(f"<h1 style='color:orange;text-align:center;'>{risk_score}%</h1>", unsafe_allow_html=True)
+# Deutsche UI-Optionen zu englischen Modellwerten (NUR für die BEHALTENEN Features)
+map_study_year_de_to_en = {
+    'Erstes Studienjahr': 'First Year',
+    'Zweites Studienjahr': 'Second Year',
+    'Drittes Studienjahr': 'Third Year',
+    'Viertes Studienjahr': 'Fourth Year'
+}
+map_socio_economic_de_to_en = {
+    'Niedrig': 'Low',
+    'Untere Mittelschicht': 'Lower-middle',
+    'Mittelschicht': 'Middle',
+    'Obere Mittelschicht': 'Upper-middle',
+    'Hoch': 'High'
+}
+map_assignment_submission_timing_de_to_en = {
+    'Immer': 'Always',
+    'Oft': 'Often',
+    'Manchmal': 'Sometimes',
+    'Selten': 'Occasionally',
+    'Nie': 'Never'
+}
+map_yes_no_de_to_en = {
+    'Ja': 'Yes',
+    'Nein': 'No'
+}
+map_study_hours_de_to_en = {
+    '0-5 Stunden': '0-5 hours',
+    '6-10 Stunden': '6-10 hours',
+    '11-15 Stunden': '11-15 hours',
+    '16+ Stunden': '16+ hours'
+}
+map_cgpa_de_to_en = {
+    'Unter 2.50': 'Below 2.50',
+    '2.50 - 2.99': '2.50 - 2.99',
+    '3.00 - 3.49': '3.00 - 3.49',
+    '3.50 - 3.74': '3.50 - 3.74',
+    '3.75 - 4.00': '3.75 - 4.00'
+}
+map_time_management_de_to_en = {
+    'Immer': 'Always',
+    'Oft': 'Often',
+    'Manchmal': 'Sometimes',
+    'Selten': 'Occasionally',
+    'Nie': 'Never'
+}
+map_mobile_hours_de_to_en = {
+    '1-2 Stunden': '1-2 hours',
+    '3-4 Stunden': '3-4 hours',
+    'Mehr als 4 Stunden': 'More than 4 hours'
+}
+map_distractions_de_to_en = {
+    'Immer': 'Always',
+    'Oft': 'Often',
+    'Manchmal': 'Sometimes',
+    'Selten': 'Occasionally',
+    'Nie': 'Never'
+}
+
+# Die tatsächlichen Features, die vom Modell verwendet werden (vor One-Hot-Encoding)
+# Basierend auf der Analyse des Notebooks (Cell execution_count 6, 'features_to_use')
+actual_model_features_before_encoding = [
+    'study_year',
+    'socio-economic_background',
+    'assignment_submission_timing',
+    'last_minute_exam_preparation',
+    'study_hours_per_week',
+    'cgpa',
+    'use_of_time_management',
+    'procrastination_management_training',
+    'procrastination_recovery_strategies',
+    'hours_spent_on_mobile_non_academic',
+    'study_session_distractions'
+]
+
+def run_procrastination_questionnaire():
+    st.title("Fragebogen zum Prokrastinationsrisiko")
+    st.markdown("""
+    **Haftungsausschluss:** Dieser Fragebogen dient zur Einschätzung Ihres Prokrastinationsrisikos.
+    Die Ergebnisse sind indikativ und ersetzen keine professionelle Beratung.
+    Bitte beantworten Sie die Fragen ehrlich, um eine möglichst genaue Einschätzung zu erhalten.
+    """)
+    st.markdown("---")
+
+    with st.form(key='procrastination_form'):
+        st.subheader("Allgemeine Informationen")
+        q_study_year = st.selectbox("In welchem Studienjahr befinden Sie sich?", options=list(map_study_year_de_to_en.keys()), key='study_year')
+        q_socio_economic = st.selectbox("Wie würden Sie Ihren sozioökonomischen Hintergrund beschreiben?", options=list(map_socio_economic_de_to_en.keys()), key='socio_economic')
+        q_cgpa = st.selectbox("Was ist Ihr aktueller Notendurchschnitt (z.B. CGPA)?", options=list(map_cgpa_de_to_en.keys()), key='cgpa')
+
+        st.subheader("Lerngewohnheiten und Zeitmanagement")
+        q_study_hours = st.selectbox("Wie viele Stunden lernen Sie durchschnittlich pro Woche?", options=list(map_study_hours_de_to_en.keys()), key='study_hours')
+        q_time_management = st.radio("Wie oft nutzen Sie Zeitmanagement-Techniken?", options=list(map_time_management_de_to_en.keys()), key='time_management')
+        q_assignment_submission = st.radio("Wie oft geben Sie Aufgaben pünktlich ab?", options=list(map_assignment_submission_timing_de_to_en.keys()), key='assignment_submission')
+        q_last_minute_exam = st.radio("Bereiten Sie sich oft in letzter Minute auf Prüfungen vor?", options=list(map_yes_no_de_to_en.keys()), key='last_minute_exam')
+        q_distractions = st.radio("Wie oft werden Sie während Lernsitzungen abgelenkt?", options=list(map_distractions_de_to_en.keys()), key='distractions')
+        q_mobile_hours = st.selectbox("Wie viele Stunden verbringen Sie täglich mit nicht-akademischen Aktivitäten auf Ihrem Mobiltelefon?", options=list(map_mobile_hours_de_to_en.keys()), key='mobile_hours')
+
+        st.subheader("Umgang mit Prokrastination") # Titel angepasst, da einige Fragen entfernt wurden
+        q_training = st.radio("Haben Sie jemals an einem Training zum Prokrastinationsmanagement teilgenommen?", options=list(map_yes_no_de_to_en.keys()), key='training')
+        q_recovery_strategies = st.radio("Nutzen Sie Strategien, um sich von Prokrastination zu erholen?", options=list(map_yes_no_de_to_en.keys()), key='recovery_strategies')
+
+        submit_button = st.form_submit_button(label='Risiko einschätzen')
+
+    if submit_button and model:
+        input_data_dict = {
+            'study_year': map_study_year_de_to_en[q_study_year],
+            'socio-economic_background': map_socio_economic_de_to_en[q_socio_economic],
+            'assignment_submission_timing': map_assignment_submission_timing_de_to_en[q_assignment_submission],
+            'last_minute_exam_preparation': map_yes_no_de_to_en[q_last_minute_exam],
+            'study_hours_per_week': map_study_hours_de_to_en[q_study_hours],
+            'cgpa': map_cgpa_de_to_en[q_cgpa],
+            'use_of_time_management': map_time_management_de_to_en[q_time_management],
+            'procrastination_management_training': map_yes_no_de_to_en[q_training],
+            'procrastination_recovery_strategies': map_yes_no_de_to_en[q_recovery_strategies],
+            'hours_spent_on_mobile_non_academic': map_mobile_hours_de_to_en[q_mobile_hours],
+            'study_session_distractions': map_distractions_de_to_en[q_distractions]
+        }
+
+        input_df = pd.DataFrame([input_data_dict])
+        
+        # One-Hot-Encoding für die kategorischen Features, die das Modell erwartet
+        # Sicherstellen, dass nur die 'actual_model_features_before_encoding' verwendet werden für get_dummies
+        input_df_encoded = pd.get_dummies(input_df, columns=actual_model_features_before_encoding, prefix_sep='_')
+
+        try:
+            model_feature_names = model.feature_names_in_
+        except AttributeError:
+            st.error("Das geladene Modell hat kein `feature_names_in_` Attribut. Spaltenreihenfolge/Namen können nicht verifiziert werden.")
+            model_feature_names = None
+
+        if model_feature_names is not None:
+            # Erstelle ein leeres DataFrame mit den vom Modell erwarteten Spaltennamen
+            final_input_df = pd.DataFrame(columns=model_feature_names)
+            # Füge die kodierten Eingabedaten hinzu. pd.concat statt append.
+            final_input_df = pd.concat([final_input_df, input_df_encoded], ignore_index=True).fillna(0)
+            # Behalte nur die Spalten, die das Modell erwartet, und in der richtigen Reihenfolge
+            # Dies stellt sicher, dass fehlende Spalten (z.B. eine Kategorie, die nicht ausgewählt wurde) als 0 vorhanden sind
+            # und überzählige Spalten (falls input_df_encoded mehr hätte) entfernt werden.
+            final_input_df = final_input_df[model_feature_names]
         else:
-            st.markdown(f"<h1 style='color:red;text-align:center;'>{risk_score}%</h1>", unsafe_allow_html=True)
-    
-    with col2:
-        # Risk level determination
-        if risk_score < 30:
-            risk_level = "Niedrig"
-            color = "green"
-            message = "Du hast ein niedriges Prokrastinations-Risiko. Weiter so!"
-        elif risk_score < 70:
-            risk_level = "Mittel"
-            color = "orange"
-            message = "Du hast ein mittleres Prokrastinations-Risiko. Mit einigen Änderungen kannst du deine Produktivität steigern."
-        else:
-            risk_level = "Hoch"
-            color = "red"
-            message = "Du hast ein hohes Prokrastinations-Risiko. Dies könnte negative Auswirkungen auf deine Noten haben."
-        
-        st.markdown(f"<h3 style='color:{color};'>Risiko-Level: {risk_level}</h3>", unsafe_allow_html=True)
-        st.write(message)
-    
-    # Display impact on grades
-    st.subheader("Mögliche Auswirkungen auf deine Noten")
-    
-    if risk_score >= 70:
-        st.warning("⚠️ Hohes Prokrastinations-Risiko kann zu signifikant schlechteren Noten führen (durchschnittlich 0.7-1.0 Notenpunkte niedriger).")
-        st.write("Studierende mit hohem Prokrastinations-Risiko haben eine 3-mal höhere Wahrscheinlichkeit, Prüfungen nicht zu bestehen.")
-    elif risk_score >= 30:
-        st.info("⚠️ Mittleres Prokrastinations-Risiko kann zu leicht schlechteren Noten führen (durchschnittlich 0.3-0.5 Notenpunkte niedriger).")
-        st.write("Studierende mit mittlerem Prokrastinations-Risiko haben eine 1.5-mal höhere Wahrscheinlichkeit, Abgabefristen zu verpassen.")
-    else:
-        st.success("✅ Dein niedriges Prokrastinations-Risiko wirkt sich positiv auf deine akademischen Leistungen aus.")
-        st.write("Studierende mit niedrigem Prokrastinations-Risiko erzielen im Durchschnitt 0.5 Notenpunkte bessere Ergebnisse.")
-    
-    # Personalized recommendations
-    st.subheader("Personalisierte Empfehlungen")
-    
-    data = st.session_state.procrastination_data
-    
-    # Generate recommendations based on assessment data
-    recommendations = generate_recommendations(data, risk_score)
-    
-    for i, (title, desc) in enumerate(recommendations):
-        with st.expander(f"{i+1}. {title}"):
-            st.write(desc)
-    
-    # Reset button
-    if st.button("Neuen Test starten"):
-        if 'procrastination_assessment_completed' in st.session_state:
-            del st.session_state.procrastination_assessment_completed
-        if 'procrastination_risk_score' in st.session_state:
-            del st.session_state.procrastination_risk_score
-        if 'procrastination_data' in st.session_state:
-            del st.session_state.procrastination_data
-        st.rerun()
+            st.warning("Modell-Feature-Namen konnten nicht geladen werden. Vorhersage basiert auf den generierten Spalten.")
+            final_input_df = input_df_encoded
+            # Hier müsste man ggf. manuell die Spalten an die Trainingsdaten anpassen, falls `model.feature_names_in_` nicht verfügbar ist.
+            # Für den Moment gehen wir davon aus, dass get_dummies + die obige Logik ausreichend ist, wenn feature_names_in_ fehlt.
 
-def generate_recommendations(data, risk_score):
-    """Generates personalized recommendations based on assessment data."""
-    recommendations = []
-    
-    # High mobile usage recommendation
-    if data['mobile_hours'] > 3:
-        recommendations.append((
-            "Reduziere deine Smartphone-Nutzung",
-            "Deine tägliche Smartphone-Nutzung von mehr als 3 Stunden für nicht-akademische Zwecke ist ein bedeutender Ablenkungsfaktor. "
-            "Versuche Apps wie Forest oder Focus Mode zu nutzen, um deine Nutzung zu reduzieren. "
-            "Lege feste Zeiten fest, in denen du dein Smartphone nicht nutzt."
-        ))
-    
-    # Poor time management recommendation
-    if data['time_management'] in ["Gar nicht", "Kaum"]:
-        recommendations.append((
-            "Verbessere dein Zeitmanagement",
-            "Effektives Zeitmanagement ist entscheidend, um Prokrastination zu bekämpfen. "
-            "Beginne mit einfachen Techniken wie der Pomodoro-Methode (25 Minuten Arbeit, 5 Minuten Pause) oder "
-            "dem Eisenhower-Prinzip zur Priorisierung von Aufgaben."
-        ))
-    
-    # Last-minute preparation recommendation
-    if data['last_minute_prep'] in ["Oft", "Immer"]:
-        recommendations.append((
-            "Vermeide Last-Minute-Lernen",
-            "Last-Minute-Lernen führt zu Stress und schlechteren Ergebnissen. Erstelle einen Lernplan, der den Stoff "
-            "über mehrere Wochen verteilt. Nutze aktive Lernmethoden wie Selbsttests und Zusammenfassungen schreiben, "
-            "anstatt nur passiv zu lesen."
-        ))
-    
-    # Distraction management
-    if "Soziale Medien" in data['distractions'] or "Nachrichten/Messenger" in data['distractions']:
-        recommendations.append((
-            "Minimiere digitale Ablenkungen",
-            "Digitale Ablenkungen sind ein Hauptgrund für Prokrastination. Installiere Browser-Erweiterungen wie StayFocusd "
-            "oder Cold Turkey, um ablenkende Websites zu blockieren. Deaktiviere Benachrichtigungen während deiner Lernzeiten."
-        ))
-    
-    # Study environment
-    if risk_score > 50:
-        recommendations.append((
-            "Optimiere deine Lernumgebung",
-            "Eine optimale Lernumgebung kann Prokrastination reduzieren. Finde einen ruhigen, aufgeräumten Ort zum Lernen. "
-            "Informiere Mitbewohner oder Familie über deine Lernzeiten, um Unterbrechungen zu minimieren."
-        ))
-    
-    # Add general recommendations if we don't have enough specific ones
-    if len(recommendations) < 3:
-        general_recommendations = [
-            (
-                "Setze dir klare Ziele",
-                "Definiere klare, spezifische und erreichbare Ziele für jede Lerneinheit. "
-                "Teile große Aufgaben in kleinere, überschaubare Teilaufgaben auf. "
-                "Das Erreichen kleiner Ziele gibt dir ein Erfolgserlebnis und motiviert dich weiterzumachen."
-            ),
-            (
-                "Nutze die 2-Minuten-Regel",
-                "Wenn eine Aufgabe weniger als 2 Minuten dauert, erledige sie sofort. "
-                "Für größere Aufgaben, starte mit nur 2 Minuten Arbeit - oft wirst du danach weitermachen wollen. "
-                "Diese Technik hilft, die anfängliche Hürde zu überwinden."
-            ),
-            (
-                "Belohne dich selbst",
-                "Etabliere ein Belohnungssystem für erledigte Aufgaben. Nach erfolgreichen Lerneinheiten "
-                "gönn dir etwas, das dir Freude bereitet. Dies stärkt die positive Assoziation mit dem Lernen "
-                "und motiviert dich, regelmäßig zu arbeiten."
-            ),
-            (
-                "Finde einen Lernpartner",
-                "Suche dir einen Kommilitonen als Lernpartner. Gegenseitige Verantwortlichkeit erhöht die Motivation. "
-                "Vereinbart regelmäßige Treffen und setzt euch gemeinsame Ziele. "
-                "Erklärt euch gegenseitig den Lernstoff, um euer Verständnis zu vertiefen."
-            ),
-            (
-                "Visualisiere deinen Fortschritt",
-                "Führe ein Lerntagebuch oder nutze eine App, um deinen Fortschritt zu verfolgen. "
-                "Die visuelle Darstellung deiner Erfolge kann sehr motivierend sein und dir helfen, "
-                "deine Produktivitätsmuster zu erkennen."
-            )
-        ]
-        
-        # Add needed number of general recommendations
-        needed = 3 - len(recommendations)
-        recommendations.extend(random.sample(general_recommendations, needed))
-    
-    return recommendations
+        try:
+            prediction = model.predict(final_input_df)
+            probabilities = model.predict_proba(final_input_df)
+            risk_map = {0: "Niedrig", 1: "Mittel", 2: "Hoch"}
+            predicted_risk_level = risk_map.get(prediction[0], "Unbekannt")
 
-def display_dashboard_warning(user_id):
-    """
-    Displays a warning on the dashboard if the user has a high procrastination risk.
-    This function can be called from the dashboard.py file.
-    """
-    # Check if risk assessment has been completed
-    if 'procrastination_risk_score' in st.session_state:
-        risk_score = st.session_state.procrastination_risk_score
-        
-        # Only show warning for high risk
-        if risk_score >= 70:
-            st.warning(
-                "⚠️ **Achtung: Hohes Prokrastinations-Risiko erkannt!** "
-                "Deine Lerngewohnheiten könnten negative Auswirkungen auf deine Noten haben. "
-                "Schau dir die personalisierten Empfehlungen in der Prokrastinations-Risiko Sektion an."
-            )
-        elif risk_score >= 50:
-            st.info(
-                "ℹ️ **Mittleres Prokrastinations-Risiko erkannt.** "
-                "Mit einigen Änderungen könntest du deine Produktivität und Noten verbessern. "
-                "Schau dir die Empfehlungen in der Prokrastinations-Risiko Sektion an."
-            )
-    else:
-        # If no assessment done yet, show gentle reminder
-        if random.random() < 0.3:  # Show only sometimes to avoid being annoying
-            st.info(
-                "💡 **Tipp:** Mache das Prokrastinations-Risiko Assessment, um zu erfahren, "
-                "wie deine Lerngewohnheiten deine Noten beeinflussen könnten und erhalte "
-                "personalisierte Empfehlungen zur Verbesserung deiner Produktivität."
-            )
+            st.subheader("Ergebnis Ihrer Einschätzung")
+            st.write(f"Ihr geschätztes Prokrastinationsrisiko ist: **{predicted_risk_level}**")
+            st.write("Wahrscheinlichkeiten für jede Risikostufe:")
+            st.write(f"- Niedriges Risiko: {probabilities[0][0]:.2%}")
+            st.write(f"- Mittleres Risiko: {probabilities[0][1]:.2%}")
+            st.write(f"- Hohes Risiko: {probabilities[0][2]:.2%}")
 
-# Database schema would need to be updated to store procrastination assessment results
-# This function would be implemented when the database schema is updated
-def save_procrastination_assessment(user_id, assessment_data, risk_score):
-    """
-    Saves the procrastination assessment results to the database.
-    This is a placeholder function that would be implemented when the database schema is updated.
-    """
-    # Example implementation (commented out until database schema is updated)
-    """
-    with get_db_session() as session:
-        # Check if assessment already exists for this user
-        existing_assessment = session.query(ProcrastinationAssessment).filter(
-            ProcrastinationAssessment.user_id == user_id
-        ).first()
-        
-        if existing_assessment:
-            # Update existing assessment
-            existing_assessment.risk_score = risk_score
-            existing_assessment.study_year = assessment_data['study_year']
-            existing_assessment.assignment_delay = assessment_data['assignment_delay']
-            # ... update other fields
-            existing_assessment.updated_at = datetime.utcnow()
-        else:
-            # Create new assessment
-            new_assessment = ProcrastinationAssessment(
-                user_id=user_id,
-                risk_score=risk_score,
-                study_year=assessment_data['study_year'],
-                assignment_delay=assessment_data['assignment_delay'],
-                # ... other fields
-                created_at=datetime.utcnow()
-            )
-            session.add(new_assessment)
-        
-        return True
-    """
-    return True  # Placeholder return until implementation
+        except Exception as e:
+            st.error(f"Fehler bei der Vorhersage: {e}")
+            st.error(f"Erwartete Spalten (falls verfügbar): {model_feature_names}")
+            st.error(f"Tatsächliche Spalten im Input-DataFrame vor der Vorhersage: {list(final_input_df.columns)}")
+
+    elif submit_button and not model:
+        st.error("Das Modell ist nicht geladen. Die Vorhersage kann nicht durchgeführt werden.")
+
+if __name__ == '__main__':
+    st.set_page_config(layout="wide")
+    run_procrastination_questionnaire()
+

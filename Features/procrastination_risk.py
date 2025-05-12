@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 import os
-import numpy as np # Required for np.select if used, and general numeric ops
+import numpy as np
+import altair as alt # Import Altair
 
 # Pfad zum Modell
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "procrastination_risk_model.joblib")
@@ -48,13 +49,16 @@ map_study_hours_de_to_en = {
     "11-15 Stunden": "11-15 hours",
     "16+ Stunden": "16+ hours"
 }
-map_cgpa_de_to_en = {
-    "Unter 2.50": "Below 2.50",
-    "2.50 - 2.99": "2.50 - 2.99",
-    "3.00 - 3.49": "3.00 - 3.49",
-    "3.50 - 3.74": "3.50 - 3.74",
-    "3.75 - 4.00": "3.75 - 4.00"
+
+# NEUES Mapping für Schweizer Notensystem
+map_cgpa_swiss_de_to_original_en = {
+    "5.5 - 6 (Sehr gut bis Hervorragend)": "3.75 - 4.00",
+    "5 - 5.25 (Gut)": "3.50 - 3.74",
+    "4.5 - 4.75 (Befriedigend)": "3.00 - 3.49",
+    "4 - 4.25 (Ausreichend)": "2.50 - 2.99",
+    "Unter 4 (Ungenügend)": "Below 2.50"
 }
+
 map_time_management_de_to_en = {
     "Immer": "Always",
     "Oft": "Often",
@@ -75,7 +79,6 @@ map_distractions_de_to_en = {
     "Nie": "Never"
 }
 
-# Aktualisierte Liste der Features, die das NEUE Modell verwendet (vor One-Hot-Encoding)
 actual_model_features_before_encoding = [
     "study_year",
     "socio-economic_background",
@@ -84,8 +87,6 @@ actual_model_features_before_encoding = [
     "study_hours_per_week",
     "cgpa",
     "use_of_time_management",
-    # "procrastination_management_training", # ENTFERNT
-    # "procrastination_recovery_strategies", # ENTFERNT
     "hours_spent_on_mobile_non_academic",
     "study_session_distractions"
 ]
@@ -103,7 +104,8 @@ def run_procrastination_questionnaire():
         st.subheader("Allgemeine Informationen")
         q_study_year = st.selectbox("In welchem Studienjahr befinden Sie sich?", options=list(map_study_year_de_to_en.keys()), key="study_year")
         q_socio_economic = st.selectbox("Wie würden Sie Ihren sozioökonomischen Hintergrund beschreiben?", options=list(map_socio_economic_de_to_en.keys()), key="socio_economic")
-        q_cgpa = st.selectbox("Was ist Ihr aktueller Notendurchschnitt (z.B. CGPA)?", options=list(map_cgpa_de_to_en.keys()), key="cgpa")
+        # CGPA Frage mit Schweizer Noten
+        q_cgpa_swiss = st.selectbox("Was ist Ihr aktueller Notendurchschnitt (Schweizer System)?", options=list(map_cgpa_swiss_de_to_original_en.keys()), key="cgpa_swiss")
 
         st.subheader("Lerngewohnheiten und Zeitmanagement")
         q_study_hours = st.selectbox("Wie viele Stunden lernen Sie durchschnittlich pro Woche?", options=list(map_study_hours_de_to_en.keys()), key="study_hours")
@@ -113,25 +115,22 @@ def run_procrastination_questionnaire():
         q_distractions = st.radio("Wie oft werden Sie während Lernsitzungen abgelenkt?", options=list(map_distractions_de_to_en.keys()), key="distractions")
         q_mobile_hours = st.selectbox("Wie viele Stunden verbringen Sie täglich mit nicht-akademischen Aktivitäten auf Ihrem Mobiltelefon?", options=list(map_mobile_hours_de_to_en.keys()), key="mobile_hours")
 
-        # Die Fragen zu "procrastination_management_training" und "procrastination_recovery_strategies" wurden entfernt.
-
         submit_button = st.form_submit_button(label="Risiko einschätzen")
 
     if submit_button and model:
         input_data_dict = {
             "study_year": map_study_year_de_to_en[q_study_year],
             "socio-economic_background": map_socio_economic_de_to_en[q_socio_economic],
+            "cgpa": map_cgpa_swiss_de_to_original_en[q_cgpa_swiss], # Map Swiss grade back to original CGPA category
             "assignment_submission_timing": map_assignment_submission_timing_de_to_en[q_assignment_submission],
             "last_minute_exam_preparation": map_yes_no_de_to_en[q_last_minute_exam],
             "study_hours_per_week": map_study_hours_de_to_en[q_study_hours],
-            "cgpa": map_cgpa_de_to_en[q_cgpa],
             "use_of_time_management": map_time_management_de_to_en[q_time_management],
             "hours_spent_on_mobile_non_academic": map_mobile_hours_de_to_en[q_mobile_hours],
             "study_session_distractions": map_distractions_de_to_en[q_distractions]
         }
 
         input_df = pd.DataFrame([input_data_dict])
-        
         input_df_encoded = pd.get_dummies(input_df, columns=actual_model_features_before_encoding, prefix_sep="_")
 
         try:
@@ -146,17 +145,7 @@ def run_procrastination_questionnaire():
             final_input_df = final_input_df[model_feature_names]
         else:
             st.warning("Modell-Feature-Namen konnten nicht geladen werden. Vorhersage basiert auf den generierten Spalten.")
-            # Fallback: Sicherstellen, dass alle Spalten aus input_df_encoded im finalen DataFrame sind
-            # und potenziell fehlende Spalten (die das Modell erwartet, aber nicht generiert wurden) hinzugefügt werden.
-            # Dies ist weniger robust als die Verwendung von model.feature_names_in_.
-            # Eine bessere Fallback-Strategie wäre, eine explizite Liste der erwarteten Spaltennamen zu haben.
-            final_input_df = input_df_encoded 
-            # Um sicherzustellen, dass alle Spalten, die das Modell erwartet (falls bekannt), vorhanden sind:
-            # known_model_cols = ["col1", "col2", ...] # Diese Liste müsste man pflegen
-            # for col in known_model_cols:
-            #     if col not in final_input_df.columns:
-            #         final_input_df[col] = 0
-            # final_input_df = final_input_df[known_model_cols] # Reihenfolge sicherstellen
+            final_input_df = input_df_encoded
 
         try:
             prediction = model.predict(final_input_df)
@@ -165,26 +154,46 @@ def run_procrastination_questionnaire():
             predicted_risk_level = risk_map.get(prediction[0], "Unbekannt")
 
             st.subheader("Ergebnis Ihrer Einschätzung")
-            st.write(f"Ihr geschätztes Prokrastinationsrisiko ist: **{predicted_risk_level}**")
+            st.metric(label="Ihr geschätztes Prokrastinationsrisiko", value=predicted_risk_level)
             
             st.write("Wahrscheinlichkeiten für jede Risikostufe:")
-            # Visualisierung der Wahrscheinlichkeiten
-            prob_data = {
+            
+            prob_data = pd.DataFrame({
                 "Risikostufe": ["Niedrig", "Mittel", "Hoch"],
                 "Wahrscheinlichkeit": probabilities[0]
-            }
-            prob_df = pd.DataFrame(prob_data)
-            
-            # Verwenden von st.bar_chart für eine einfache Visualisierung
-            st.bar_chart(prob_df.set_index("Risikostufe"))
+            })
 
-            # Alternative Textdarstellung (falls gewünscht)
-            # st.write(f"- Niedriges Risiko: {probabilities[0][0]:.2%}")
-            # st.write(f"- Mittleres Risiko: {probabilities[0][1]:.2%}")
-            # st.write(f"- Hohes Risiko: {probabilities[0][2]:.2%}")
+            # BCG-Style Altair Chart
+            chart = alt.Chart(prob_data).mark_bar(size=40).encode(
+                x=alt.X("Risikostufe:N", sort=None, axis=alt.Axis(labelAngle=-45, title="Risikostufe", labelFontSize=12, titleFontSize=14, labelPadding=10)),
+                y=alt.Y("Wahrscheinlichkeit:Q", axis=alt.Axis(format=".0%", title="Wahrscheinlichkeit", labelFontSize=12, titleFontSize=14)),
+                color=alt.Color("Risikostufe:N", 
+                                scale=alt.Scale(domain=["Niedrig", "Mittel", "Hoch"], 
+                                                range=["#4E79A7", "#F28E2B", "#E15759"]), # BCG-ish colors: Blue, Orange, Red
+                                legend=None),
+                tooltip=[alt.Tooltip("Risikostufe:N", title="Risiko"), alt.Tooltip("Wahrscheinlichkeit:Q", title="Wahrsch.", format=".2%")]
+            ).properties(
+                title=alt.TitleParams(
+                    text="Prokrastinationsrisiko-Wahrscheinlichkeiten",
+                    fontSize=16,
+                    anchor="middle"
+                ),
+                width=alt.Step(80), # Controls bar width indirectly by step
+                background="#FFFFFF" # Clean background
+            ).configure_view(
+                strokeWidth=0 # No border around the chart
+            ).configure_axis(
+                gridColor="#E0E0E0" # Lighter grid lines
+            ).configure_title(
+                fontSize=18,
+                fontWeight="bold",
+                anchor="start"
+            )
+            
+            st.altair_chart(chart, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Fehler bei der Vorhersage: {e}")
+            st.error(f"Fehler bei der Vorhersage oder Visualisierung: {e}")
             st.error(f"Stellen Sie sicher, dass das hochgeladene Modell mit den aktuellen Features trainiert wurde.")
             if model_feature_names:
                  st.error(f"Vom Modell erwartete Spalten: {model_feature_names}")
@@ -194,6 +203,6 @@ def run_procrastination_questionnaire():
         st.error("Das Modell ist nicht geladen. Die Vorhersage kann nicht durchgeführt werden.")
 
 if __name__ == "__main__":
-    st.set_page_config(layout="wide")
+    st.set_page_config(layout="wide", page_title="Prokrastinationsrisiko-Analyse")
     run_procrastination_questionnaire()
 

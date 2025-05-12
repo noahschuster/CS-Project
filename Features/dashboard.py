@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 from streamlit_cookies_manager import EncryptedCookieManager
 from functools import lru_cache
 import pandas as pd
-from procrastination_risk import display_procrastination_assessment, display_dashboard_warning
+# from procrastination_risk import display_procrastination_assessment, display_dashboard_warning
 
 # Import specific functions to avoid unnecessarily importing entire modules
 from api_connection import get_user_courses
@@ -157,7 +157,7 @@ def display_dashboard(user_id, username):
     st.subheader("Your Learning Journey")
 
     # Zeige Prokrastinations-Warnung an (wenn Risiko hoch ist)
-    display_dashboard_warning(user_id)
+    #display_dashboard_warning(user_id)
 
     # Get user data with caching
     learning_type = get_cached_user_learning_type(user_id)
@@ -263,7 +263,7 @@ def main(cookies):
             "Courses": "api_connection.display_hsg_api_page",
             "Learning Tips": "learning_tipps.display_learning_tips",
             "Learning Suggestions": "learning_suggestions.display_learning_suggestions",
-            "Prokrastinations-Risiko": "procrastination_risk.display_procrastination_assessment"
+            "Prokrastinations-Risiko": "procrastination_risk.run_procrastination_questionnaire" # MODIFIED HERE
         }
                 
         page = st.radio("Navigation", list(pages.keys()))
@@ -278,4 +278,9 @@ def main(cookies):
         # Dynamic import to avoid circular dependencies and minimize loading time
         module_name, function_name = pages[page].split(".")
         module = __import__(module_name)
-        getattr(module, function_name)(user_id)
+        # MODIFIED HERE: Call run_procrastination_questionnaire without user_id
+        if page == "Prokrastinations-Risiko" and function_name == "run_procrastination_questionnaire":
+            getattr(module, function_name)()
+        else:
+            getattr(module, function_name)(user_id)
+

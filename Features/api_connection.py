@@ -149,13 +149,13 @@ def fetch_courses_for_term(term_id):
 
 def get_user_courses(user_id):
     """
-    Get courses a specific user is enrolled in.
+    Ermittelt Kurse, für die ein bestimmter Benutzer eingeschrieben ist.
     
     Args:
-        user_id (int): The user ID to fetch courses for
+        user_id (int): Die Benutzer-ID, für die Kurse abgerufen werden sollen.
         
-    Returns:
-        list: List of course information dictionaries for the user
+    Rückgabe:
+        list: Liste der Kursinformationswörterbücher für den Benutzer
     """
     session = SessionLocal()
     try:
@@ -183,28 +183,28 @@ def get_user_courses(user_id):
         
         return courses_list
     except Exception as e:
-        st.error(f"Error fetching user courses: {str(e)}")
+        st.error(f"Fehler beim Abrufen von Benutzerkursen: {str(e)}")
         return []
     finally:
         session.close()
 
 def fetch_and_store_courses():
     status = st.empty()
-    status.info("Fetching course data from HSG API...")
+    status.info("Abruf von Kursdaten aus der HSG API...")
     
     current_term = fetch_current_term()
     if not current_term:
-        status.error("Failed to fetch current term information.")
+        status.error("Aktuelle Terminformationen konnten nicht abgerufen werden.")
         return False
     
     term_id = current_term['id']
     term_name = current_term['shortName']
     term_description = current_term['description']
     
-    status.info(f"Fetching courses for {term_description}...")
+    status.info(f"Abruf von Kursen für  {term_description}...")
     courses_data = fetch_courses_for_term(term_id)
     if not courses_data:
-        status.error("Failed to fetch courses.")
+        status.error("Die Kurse konnten nicht abgerufen werden.")
         return False
     
     session = SessionLocal()

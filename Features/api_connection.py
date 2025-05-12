@@ -2,7 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
-from database_manager import SessionLocal, Course, UserCourse
+from database_manager import SessionLocal, Course, UserCourse, CourseSchedule  
+
+import os
+from datetime import datetime
 
 # HSG API Constants
 API_APPLICATION_ID = "587acf1c-24d0-4801-afda-c98f081c4678"
@@ -10,7 +13,18 @@ API_VERSION = "1"
 API_BASE_URL = "https://integration.preprod.unisg.ch"
 LANGUAGE_MAP = {2: "German", 21: "English"}
 
-def api_request(endpoint, headers=None):
+def api_request(endpoint, headers=None, timeout=10):
+    """
+    Führt eine API-Anfrage an den HSG-Server durch.
+    
+    Args:
+        endpoint (str): Der API-Endpunkt, der aufgerufen werden soll
+        headers (dict, optional): HTTP-Header für die Anfrage
+        timeout (int, optional): Timeout in Sekunden für die Anfrage
+        
+    Returns:
+        dict or None: Die JSON-Antwort oder None bei einem Fehler
+    """
     if headers is None:
         headers = {
             "X-ApplicationId": API_APPLICATION_ID,
@@ -19,16 +33,19 @@ def api_request(endpoint, headers=None):
         }
     
     try:
-        response = requests.get(f"{API_BASE_URL}{endpoint}", headers=headers)
+        response = requests.get(f"{API_BASE_URL}{endpoint}", headers=headers, timeout=timeout)
         if response.ok:
             return response.json()
-
         else:
-            st.error(f"API Error: {response.status_code}")
+            st.error(f"API-Fehler: {response.status_code} - {response.reason}")
             return None
-    except Exception as e:
-        st.error(f"Connection Error: {str(e)}")
+    except requests.exceptions.Timeout:
+        st.error(f"Timeout bei API-Anfrage an {endpoint} nach {timeout} Sekunden")
         return None
+    except Exception as e:
+        st.error(f"Fehler bei API-Anfrage: {str(e)}")
+        return None
+
 
 def fetch_current_term():
     return api_request("/eventapi/timeLines/currentTerm")
@@ -38,17 +55,18 @@ def fetch_course_schedule(term_id, event_id):
     Ruft den Zeitplan für einen bestimmten Kurs ab.
     
     Args:
-        term_id (str): Die Semester-ID
+        term_id (str): Die Semester-ID (wird nicht verwendet, aber beibehalten für Kompatibilität)
         event_id (str): Die Kurs-/Veranstaltungs-ID
         
     Returns:
         list: Liste der Termine für den Kurs
     """
-    return api_request(f"/eventapi/EventDates/byEvent/{event_id}/byTerm/{term_id}")
+    return api_request(f"/eventapi/EventDates/byEvent/{event_id}")
 
 def sync_course_schedule_to_calendar(user_id):
     """
     Synchronisiert alle Kurstermine eines Benutzers mit seinem Kalender.
+    Verwendet jetzt die gespeicherten Termine statt die API erneut abzufragen.
     
     Args:
         user_id (int): Die Benutzer-ID
@@ -56,20 +74,13 @@ def sync_course_schedule_to_calendar(user_id):
     Returns:
         int: Anzahl der zum Kalender hinzugefügten Termine
     """
-    from database_manager import get_calendar_events, save_calendar_event
+    from database_manager import get_calendar_events, save_calendar_event, CourseSchedule
     
     # Aktuelle Kurse des Benutzers abrufen
     user_courses = get_user_courses(user_id)
     if not user_courses:
         return 0
     
-    # Aktuelles Semester abrufen
-    current_term = fetch_current_term()
-    if not current_term:
-        st.error("Fehler beim Abrufen der aktuellen Semesterinformationen.")
-        return 0
-    
-    term_id = current_term['id']
     events_added = 0
     
     # Bestehende Kalendereinträge abrufen, um Duplikate zu vermeiden
@@ -81,61 +92,57 @@ def sync_course_schedule_to_calendar(user_id):
                 event_key = f"{event['title']}_{event['date']}_{event['time']}"
                 existing_event_titles.add(event_key)
     
-    for course in user_courses:
-        course_id = course['course_id']
-        course_title = course['title']
-        course_code = course['meeting_code']
-        
-        # Kurstermine abrufen
-        course_dates = fetch_course_schedule(term_id, course_id)
-        if not course_dates:
-            continue
-        
-        for date in course_dates:
-            try:
-                # Daten aus der API extrahieren
-                start_datetime = date.get('startDate')
-                end_datetime = date.get('endDate')
-                room = date.get('roomName', 'Kein Raum angegeben')
-                
-                if not start_datetime or not end_datetime:
-                    continue
-                
-                # Datum und Zeit formatieren
-                start_date = start_datetime.split('T')[0]  # YYYY-MM-DD
-                start_time = start_datetime.split('T')[1][:5]  # HH:MM
-                end_time = end_datetime.split('T')[1][:5]  # HH:MM
-                
-                # Ereignistitel erstellen
-                event_title = f"{course_code} - {course_title}"
-                
-                # Prüfen, ob der Termin bereits existiert
-                event_key = f"{event_title}_{start_date}_{start_time}"
-                if event_key in existing_event_titles:
-                    continue
-                
-                # Kalenderereignis erstellen
-                event_data = {
-                    'title': event_title,
-                    'date': start_date,
-                    'time': start_time,
-                    'end_time': end_time,
-                    'event_type': "Vorlesung",
-                    'color': "#ccccff",  # Blau für Vorlesungen
-                    'user_id': user_id,
-                    'description': f"Raum: {room}"
-                }
-                
-                # Ereignis zum Kalender hinzufügen
-                event_id = save_calendar_event(user_id, event_data)
-                if event_id:
-                    events_added += 1
-            except Exception as e:
-                st.error(f"Fehler bei der Verarbeitung des Kurstermins: {e}")
+    session = SessionLocal()
+    try:
+        for course in user_courses:
+            course_id = course['course_id']
+            course_title = course['title']
+            course_code = course['meeting_code']
+            
+            # Gespeicherte Kurstermine abrufen statt API-Aufruf
+            course_dates = session.query(CourseSchedule).filter(
+                CourseSchedule.course_id == course_id
+            ).all()
+            
+            if not course_dates:
                 continue
-    
-    return events_added
-
+            
+            for date in course_dates:
+                try:
+                    # Ereignistitel erstellen
+                    event_title = f"{course_code} - {course_title}"
+                    
+                    # Prüfen, ob der Termin bereits existiert
+                    event_key = f"{event_title}_{date.start_date}_{date.start_time}"
+                    if event_key in existing_event_titles:
+                        continue
+                    
+                    # Kalenderereignis erstellen
+                    event_data = {
+                        'title': event_title,
+                        'date': date.start_date,
+                        'time': date.start_time,
+                        'end_time': date.end_time,
+                        'type': "Vorlesung",
+                        'color': "#ccccff",  # Blau für Vorlesungen
+                        'user_id': user_id,
+                        'description': f"Raum: {date.room}"
+                    }
+                    
+                    # Ereignis zum Kalender hinzufügen
+                    event_id = save_calendar_event(user_id, event_data)
+                    if event_id:
+                        events_added += 1
+                except Exception as e:
+                    st.error(f"Fehler bei der Verarbeitung des Kurstermins: {e}")
+                    continue
+        
+        return events_added
+    except Exception as e:
+        st.error(f"Fehler beim Synchronisieren der Kurstermine: {e}")
+        return 0
+    finally:
+        session.close()
 
 def fetch_courses_for_term(term_id):
     return api_request(f"/eventapi/Events/byTerm/{term_id}")
@@ -194,6 +201,7 @@ def fetch_and_store_courses():
     term_name = current_term['shortName']
     term_description = current_term['description']
     
+    status.info(f"Fetching courses for {term_description}...")
     courses_data = fetch_courses_for_term(term_id)
     if not courses_data:
         status.error("Failed to fetch courses.")
@@ -202,9 +210,21 @@ def fetch_and_store_courses():
     session = SessionLocal()
     try:
         courses_added = 0
+        schedules_added = 0
         
-        for course in courses_data:
+        # Erstelle einen Fortschrittsbalken
+        progress_bar = st.progress(0)
+        
+        for i, course in enumerate(courses_data):
             try:
+                # Aktualisiere den Fortschrittsbalken
+                progress = (i + 1) / len(courses_data)
+                progress_bar.progress(progress)
+                
+                # Aktualisiere den Status alle 50 Kurse
+                if i % 50 == 0 or i == len(courses_data) - 1:
+                    status.info(f"Processing course {i+1}/{len(courses_data)}: {course.get('title', '')}")
+                
                 course_id = str(course.get('id', ''))
                 existing_course = session.query(Course).filter(Course.course_id == course_id).first()
                 
@@ -227,18 +247,115 @@ def fetch_and_store_courses():
                 else:
                     session.add(Course(**course_data))
                 
+                # WICHTIG: Hole und speichere Kurszeiten direkt für jeden Kurs
+                course_dates = fetch_course_schedule(term_id, course_id)
+                if course_dates:
+                    store_course_schedule(course_id, course_dates)
+                    schedules_added += 1
+                
+                # Commit alle 50 Kurse, um den Speicher zu entlasten
+                if i % 50 == 0:
+                    session.commit()
+                
                 courses_added += 1
             except Exception as e:
                 session.rollback()
                 st.error(f"Error adding course {course.get('id', '')}: {str(e)}")
         
+        # Finaler Commit
         session.commit()
-        status.success(f"Successfully imported {courses_added} courses for {term_description}")
+        
+        # Entferne den Fortschrittsbalken und zeige Erfolgsmeldung
+        progress_bar.empty()
+        status.success(f"Successfully imported {courses_added} courses with {schedules_added} schedules for {term_description}")
+        
+        # Lade die Seite neu, um die Änderungen anzuzeigen
+        st.rerun()
+        
         return True
     except Exception as e:
         session.rollback()
         st.error(f"Error storing courses: {str(e)}")
         return False
+    finally:
+        session.close()
+
+
+def store_course_schedule(course_id, course_dates):
+    """
+    Speichert die Kurszeiten für einen bestimmten Kurs in der Datenbank.
+    
+    Args:
+        course_id (str): Die Kurs-ID
+        course_dates (list): Liste der Termine für den Kurs
+    """
+    if not course_dates:
+        st.warning(f"Keine Kurstermine für Kurs {course_id} gefunden.")
+        return
+        
+    session = SessionLocal()
+    try:
+        # Lösche vorhandene Termine
+        session.query(CourseSchedule).filter(CourseSchedule.course_id == course_id).delete()
+        
+        # Zähle erfolgreich gespeicherte Termine
+        saved_dates = 0
+        
+        # Speichere neue Termine
+        for date in course_dates:
+            try:
+                # Daten aus der API extrahieren - KORRIGIERT: Verwende startTime und endTime
+                start_datetime = date.get('startTime')
+                end_datetime = date.get('endTime')
+                room = date.get('location', 'Kein Raum angegeben')  # KORRIGIERT: Verwende location statt roomName
+                
+                if not start_datetime or not end_datetime:
+                    continue
+                
+                # Datum und Zeit formatieren
+                try:
+                    start_date = start_datetime.split('T')[0]  # YYYY-MM-DD
+                    start_time = start_datetime.split('T')[1][:5]  # HH:MM
+                    end_time = end_datetime.split('T')[1][:5]  # HH:MM
+                except IndexError:
+                    # Versuche alternatives Format
+                    if 'T' not in start_datetime:
+                        # Wenn das Format anders ist, versuche zu parsen
+                        try:
+                            dt_start = datetime.fromisoformat(start_datetime)
+                            dt_end = datetime.fromisoformat(end_datetime)
+                            start_date = dt_start.strftime('%Y-%m-%d')
+                            start_time = dt_start.strftime('%H:%M')
+                            end_time = dt_end.strftime('%H:%M')
+                        except ValueError:
+                            st.error(f"Unbekanntes Datumsformat: {start_datetime}")
+                            continue
+                    else:
+                        st.error(f"Fehler beim Parsen des Datums: {start_datetime}")
+                        continue
+                
+                # Speichere den Termin
+                schedule_entry = CourseSchedule(
+                    course_id=course_id,
+                    start_date=start_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    room=room
+                )
+                session.add(schedule_entry)
+                saved_dates += 1
+            except Exception as e:
+                st.error(f"Fehler bei der Verarbeitung des Kurstermins: {e}")
+                continue
+        
+        if saved_dates > 0:
+            session.commit()
+            st.success(f"{saved_dates} Kurstermine für Kurs {course_id} gespeichert.")
+        else:
+            st.warning(f"Keine Kurstermine für Kurs {course_id} gespeichert.")
+    except Exception as e:
+        session.rollback()
+        st.error(f"Fehler beim Speichern der Kurstermine: {str(e)}")
     finally:
         session.close()
 

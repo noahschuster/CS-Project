@@ -5,7 +5,7 @@ from database_manager import get_db_session, User, UserSession
 
 @st.cache_data(ttl=300)
 def get_user_sessions(user_id):
-    """Gets all sessions for a user and calculates durations."""
+    """Ruft alle Sitzungen für einen Benutzer ab und berechnet die Dauer."""
     with get_db_session() as session:
         user_sessions = session.query(UserSession).filter(
             UserSession.user_id == user_id
@@ -27,20 +27,20 @@ def get_user_sessions(user_id):
 
 @st.cache_data(ttl=300)
 def get_user_learning_type(user_id):
-    """Gets the user's learning type from the database."""
+    """Ruft den Lerntyp des Benutzers aus der Datenbank ab."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         return user.learning_type if user else None
 
 @st.cache_data(ttl=300)
 def get_learning_type_completed(user_id):
-    """Checks if the user has completed their learning type assessment."""
+    """Überprüft, ob der Benutzer seine Lerntypbewertung abgeschlossen hat."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         return bool(user.learning_type_completed) if user else False
 
 def set_learning_type(user_id, learning_type):
-    """Sets the user's learning type and marks it as completed."""
+    """Legt den Lerntyp des Benutzers fest und markiert ihn als abgeschlossen."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         if user:

@@ -188,7 +188,7 @@ def display_dashboard(user_id, username):
         # Diagramm 1: Lernzeiten nach Thema
         st.write("### Lernzeiten nach Thema")
         st.write("Dieses Diagramm zeigt, wie viel Zeit du für die einzelnen Themen oder Fächer aufgewendet hast. Es hilft dir, deine Lernzeit besser zu verstehen und zu priorisieren.")
-        st.plotly_chart(create_pie_chart_learning_time_by_subject(user_id))
+        st.plotly_chart(create_pie_chart_learning_time_by_subject(user_id), use_container_width=True)
     
     with col2:
         st.subheader("Letzte Aktivitäten")
@@ -221,7 +221,7 @@ def display_dashboard(user_id, username):
          # Diagramm 2: Zeitnutzung der nächsten Woche
         st.write("### Zeitnutzung der nächsten Woche")
         st.write("Das Diagramm zeigt, wie viel Zeit von den geplanten 40 Stunden der nächsten Woche bereits durch Termine belegt ist. So kannst du sehen, wie viel Kapazität dir noch zur Verfügung steht.")
-        st.plotly_chart(create_pie_chart_next_week_usage(user_id))
+        st.plotly_chart(create_pie_chart_next_week_usage(user_id), use_container_width=True)
 
 # Änderungen an dashboard.py
 

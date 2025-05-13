@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 import calendar
 from datetime import datetime, timedelta
+import locale
+locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
 import random
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
 # Neuer Import für Google Calendar Synchronisation

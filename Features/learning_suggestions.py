@@ -44,7 +44,7 @@ load_dotenv()
 
 # Hole den API-Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
+#OPENAI_API_KEY="""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"""
 
 client: Optional[OpenAI] = None
 if OPENAI_AVAILABLE and OPENAI_API_KEY:
@@ -52,43 +52,43 @@ if OPENAI_AVAILABLE and OPENAI_API_KEY:
         client = OpenAI(api_key=OPENAI_API_KEY)
     except Exception as e:
         if "st" in globals() and hasattr(st, "error"):
-            st.error(f"Failed to initialize OpenAI client: {e}")
+            st.error(f"Der OpenAI-Client konnte nicht initialisiert werden: {e}")
         else:
-            print(f"ERROR: Failed to initialize OpenAI client: {e}")
+            print(f"ERROR: OpenAI-Client konnte nicht initialisiert werden: {e}")
         client = None
 elif OPENAI_AVAILABLE and not OPENAI_API_KEY:
     if "st" in globals() and hasattr(st, "error"):
-        st.error("OpenAI API key not found. Please set it to use the AI learning plan generation feature.")
+        st.error("OpenAI API-Schlüssel nicht gefunden. Bitte stellen Sie ihn so ein, dass die KI-Lernplangenerierung verwendet wird.")
     else:
-        print("ERROR: OpenAI API key not found.")
+        print("ERROR: OpenAI-API-Schlüssel nicht gefunden.")
     client = None
 
 # --- Constants --- 
 MINUTES_PER_ECTS_PER_WEEK = 45
 DEFAULT_SESSION_DURATION_MINUTES = 90
-PDF_DOWNLOAD_DIR = "/home/ubuntu/pdf_course_sheets" # Ensure this directory is writable
+PDF_DOWNLOAD_DIR = "pdf_course_sheets/" # Ensure this directory is writable
 if not os.path.exists(PDF_DOWNLOAD_DIR):
     try:
         os.makedirs(PDF_DOWNLOAD_DIR, exist_ok=True)
     except OSError as e:
         if "st" in globals() and hasattr(st, "error"):
-            st.error(f"Could not create PDF download directory {PDF_DOWNLOAD_DIR}: {e}")
+            st.error(f"PDF-Download-Verzeichnis konnte nicht erstellt werden {PDF_DOWNLOAD_DIR}: {e}")
         else:
-            print(f"ERROR: Could not create PDF download directory {PDF_DOWNLOAD_DIR}: {e}")
+            print(f"ERROR: PDF-Download-Verzeichnis konnte nicht erstellt werden {PDF_DOWNLOAD_DIR}: {e}")
 
 
 # --- PDF Processing Utilities ---
 def download_pdf(pdf_url: str, course_code: str, download_dir: str = PDF_DOWNLOAD_DIR) -> Optional[str]:
-    """Downloads a PDF from a URL and saves it locally."""
+    """Lädt eine PDF-Datei von einer URL herunter und speichert sie lokal."""
     try:
         if not os.path.exists(download_dir):
             try:
                 os.makedirs(download_dir, exist_ok=True)
             except OSError as e:
                 if "st" in globals() and hasattr(st, "error"):
-                    st.error(f"Could not create PDF download directory {download_dir}: {e}")
+                    st.error(f"PDF-Download-Verzeichnis konnte nicht erstellt werden {download_dir}: {e}")
                 else:
-                    print(f"ERROR: Could not create PDF download directory {download_dir}: {e}")
+                    print(f"ERROR: PDF-Download-Verzeichnis konnte nicht erstellt werden {download_dir}: {e}")
                 return None
 
         headers = {
@@ -103,19 +103,19 @@ def download_pdf(pdf_url: str, course_code: str, download_dir: str = PDF_DOWNLOA
         return file_path
     except requests.exceptions.RequestException as e:
         if "st" in globals() and hasattr(st, "error"):
-            st.error(f"Error downloading PDF for {course_code} from {pdf_url}: {e}")
+            st.error(f"Error beim Herunterladen des PDFs für {course_code} von {pdf_url}: {e}")
         else:
-            print(f"ERROR: Error downloading PDF for {course_code} from {pdf_url}: {e}")
+            print(f"Error beim Herunterladen des PDFs für {course_code} von {pdf_url}: {e}")
         return None
     except Exception as e:
         if "st" in globals() and hasattr(st, "error"):
-            st.error(f"An unexpected error occurred during PDF download for {course_code}: {e}")
+            st.error(f"Ein unerwarteter Fehler ist beim PDF-Download für {course_code}: {e}")
         else:
-            print(f"ERROR: An unexpected error occurred during PDF download for {course_code}: {e}")
+            print(f"ERROR: Ein unerwarteter Fehler ist beim PDF-Download für {course_code}: {e}")
         return None
 
 def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
-    """Extracts text from a PDF file using PyMuPDF (fitz)."""
+    """Extrahiert Text aus einer PDF-Datei mit PyMuPDF (fitz)."""
     try:
         doc = fitz.open(pdf_path)
         text = ""
@@ -126,13 +126,13 @@ def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
         return text
     except Exception as e:
         if "st" in globals() and hasattr(st, "error"):
-            st.error(f"Error extracting text from PDF {pdf_path} using PyMuPDF: {e}")
+            st.error(f"Fehler beim Extrahieren von Text aus PDF {pdf_path} mit PyMuPDF: {e}")
         else:
-            print(f"ERROR: Error extracting text from PDF {pdf_path} using PyMuPDF: {e}")
+            print(f"Fehler beim Extrahieren von Text aus PDF {pdf_path} mit PyMuPDF: {e}")
         return None
 
 def parse_course_details_from_text(text: str, course_title: str) -> Dict[str, Any]:
-    """Parses ECTS and content summary from extracted PDF text."""
+    """Analysiert ECTS und Inhaltszusammenfassung aus extrahiertem PDF-Text."""
     details = {"ects": None, "content_summary": f"General information for {course_title}"}
     ects_patterns = [
         r"ECTS credits:?\s*(\d+([.,]\d+)?)" ,
@@ -230,9 +230,9 @@ def parse_course_details_from_text(text: str, course_title: str) -> Dict[str, An
 
     if details["ects"] is None:
         if "st" in globals() and hasattr(st, "warning"):
-            st.warning(f"Could not automatically determine ECTS for '{course_title}'. Assuming 3 ECTS as default.")
+            st.warning(f"Konnte nicht automatisch ECTS ermitteln für '{course_title}'. Annahme von 3 ECTS als Standard.")
         else:
-            print(f"WARNING: Could not automatically determine ECTS for '{course_title}'. Assuming 3 ECTS as default.")
+            print(f"WARNING: Konnte nicht automatisch die ECTS für '{course_title}'. Annahme von 3 ECTS als Standard.")
         details["ects"] = 3
     return details
 
@@ -252,10 +252,10 @@ def get_busy_slots(calendar_events: List[Dict[str, Any]]) -> Dict[str, List[Tupl
                 busy_slots[event_date_str] = []
             busy_slots[event_date_str].append((start_time_obj, end_time_obj))
         except KeyError as e:
-            print(f"Event missing expected key: {e} in event: {event}")
+            print(f"Ereignis fehlt erwarteter Schlüssel {e} in Veranstaltung: {event}")
             continue
         except ValueError as e:
-            print(f"Error parsing date/time in event: {event} - {e}")
+            print(f"Fehler beim Parsen von Datum/Uhrzeit im Ereignis: {event} - {e}")
             continue
     for date_str in busy_slots:
         busy_slots[date_str].sort()
@@ -473,16 +473,16 @@ def _generate_complete_study_plan(
     current_step = 0
 
     for course_info in selected_courses_info:
-        st.write(f"Processing course: {course_info['title']} ({course_info['code']})...")
+        st.write(f"Verarbeite Kurs: {course_info['title']} ({course_info['code']})...")
         if not course_info.get("link_course_info"):
-            st.warning(f"Skipping {course_info['title']} as Kursmerkblatt-Link fehlt.")
+            st.warning(f"Übersprüinge {course_info['title']} weil Kursmerkblatt-Link fehlt.")
             current_step += weeks
             progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
             continue
             
         pdf_path = download_pdf(course_info["link_course_info"], course_info["code"])
         if not pdf_path:
-            st.warning(f"Skipping {course_info['title']} as PDF could not be downloaded.")
+            st.warning(f"Überspringe {course_info['title']} weil das PDF nicht heruntergeladen werden konnte.")
             current_step += weeks
             progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
             continue
@@ -491,7 +491,7 @@ def _generate_complete_study_plan(
         if os.path.exists(pdf_path): os.remove(pdf_path)
 
         if not pdf_text:
-            st.warning(f"Skipping {course_info['title']} as text could not be extracted from PDF.")
+            st.warning(f"Überspringe {course_info['title']} weil der Text nicht aus dem PDF extrahiert werden konnte.")
             current_step += weeks
             progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
             continue
@@ -502,7 +502,7 @@ def _generate_complete_study_plan(
         
         weekly_study_minutes_for_course = ects * MINUTES_PER_ECTS_PER_WEEK
         if weekly_study_minutes_for_course <= 0:
-            st.info(f"Course {course_info['title']} has 0 ECTS or 0 study minutes calculated. Skipping planning.")
+            st.info(f"Kurs {course_info['title']} hat 0 ECTS oder 0 Lernminuten. Überspringe Planung.")
             current_step += weeks
             progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
             continue
@@ -510,12 +510,12 @@ def _generate_complete_study_plan(
         num_sessions_per_week = max(1, round(weekly_study_minutes_for_course / DEFAULT_SESSION_DURATION_MINUTES))
         actual_session_duration = round(weekly_study_minutes_for_course / num_sessions_per_week)
 
-        st.write(f"  ECTS: {ects}, Weekly Minutes: {weekly_study_minutes_for_course}, Sessions/Week: {num_sessions_per_week} x {actual_session_duration}min")
+        st.write(f"  ECTS: {ects}, Wöchentliche Minuten: {weekly_study_minutes_for_course}, Sessions/Woche: {num_sessions_per_week} x {actual_session_duration}min")
 
         for week_idx in range(weeks):
             current_step += 1
             progress_bar.progress(min(1.0, current_step / total_steps if total_steps > 0 else 0.0))
-            st.write(f"  Planning Week {week_idx + 1} for {course_info['title']}...")
+            st.write(f"  Plane Woche {week_idx + 1} für {course_info['title']}...")
             
             weekly_ai_plan = generate_weekly_plan_with_openai(
                 course_title=course_info["title"],
@@ -529,7 +529,7 @@ def _generate_complete_study_plan(
             )
 
             if not weekly_ai_plan:
-                st.warning(f"Could not generate AI plan for {course_info['title']} for week {week_idx + 1}.")
+                st.warning(f"Konnte keinen KI Lernplan generieren für {course_info['title']} für Woche {week_idx + 1}.")
                 for _ in range(num_sessions_per_week):
                     full_study_plan.append({
                         "course_id": course_info["id"], "course_title": course_info["title"], "course_code": course_info["code"],
@@ -579,10 +579,10 @@ def _generate_complete_study_plan(
                         "date": "UNSCHEDULED", "start_time": "N/A", "end_time": "N/A",
                         "content": session_content, "completed": False, "status": "unscheduled_conflict"
                     })
-                    st.warning(f"Could not find a free slot for one session of {course_info['title']} in week {week_idx + 1}.")
+                    st.warning(f"Konnte keinen freien Platz für eine Sitzung von {course_info['title']} in Woche {week_idx + 1}.")
     
     progress_bar.progress(1.0)
-    st.success("Study plan generation process complete.")
+    st.success("Prozess der Studienplanerstellung abgeschlossen.")
     full_study_plan.sort(key=lambda x: (x.get("date", "zzzz"), x.get("start_time", "zz:zz")))
     return full_study_plan
 

@@ -25,12 +25,12 @@ CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # Farbzuordnung zwischen StudyBuddy und Google Calendar
 EVENT_TYPE_COLOR_MAP = {
-    "Study Session": "7",    # Hellgrün
-    "Lecture": "2",          # Blau
-    "Exam": "11",            # Rot
-    "Assignment Due": "5",   # Gelb
-    "Group Meeting": "9",    # Lila
-    "Other": "8"             # Grau
+    "Lern-Session": "7",    # Hellgrün
+    "Vorlesung": "2",          # Blau
+    "Prüfung": "11",            # Rot
+    "Aufgabe fällig": "5",   # Gelb
+    "Gruppen-Meeting": "9",    # Lila
+    "Andere": "8"             # Grau
 }
 
 # Google Calendar Farben zu StudyBuddy Farben
@@ -45,12 +45,12 @@ GOOGLE_TO_STUDYBUDDY_COLORS = {
 
 # Google Calendar Farben zu StudyBuddy Event-Typen
 GOOGLE_COLOR_TO_EVENT_TYPE = {
-    "7": "Study Session",
-    "2": "Lecture",
-    "11": "Exam",
-    "5": "Assignment Due",
-    "9": "Group Meeting",
-    "8": "Other"
+    "7": "Lern-Session",
+    "2": "Vorlesung",
+    "11": "Prüfung",
+    "5": "Aufgabe fällig",
+    "9": "Gruppen-Meeting",
+    "8": "Andere"
 }
 
 def save_credentials_to_session(creds):

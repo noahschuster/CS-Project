@@ -16,3 +16,4 @@ openai
 fitz
 pymupdf
 plotly
+joblib

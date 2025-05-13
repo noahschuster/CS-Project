@@ -1,14 +1,13 @@
 import streamlit as st
-import pandas as pd
 import datetime
 import calendar
-from datetime import datetime, timedelta
-import random
+from datetime import datetime
+
+#Imports unserer Module
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
-# Neuer Import für Google Calendar Synchronisation
 from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 
-
+# Streamlit Frontend
 def display_calendar(user_id):
     st.title("Studienkalender")
     
@@ -16,7 +15,7 @@ def display_calendar(user_id):
     cal_tab1, cal_tab2 = st.tabs(["Kalender", "Google Kalender Sync"])
     
     with cal_tab1:
-        # Lade Ereignisse aus der Datenbank statt Demo-Events zu verwenden
+        # Lade Ereignisse aus der Datenbank
         db_events = get_calendar_events(user_id)
         st.session_state.calendar_events = db_events if db_events else []
         
@@ -27,7 +26,7 @@ def display_calendar(user_id):
         col1, col2, col3 = st.columns([2, 3, 2])
         
         with col1:
-            # Get current month and year (default)
+            # Aktuelle DAtum bestimmen
             if 'calendar_month' not in st.session_state:
                 st.session_state.calendar_month = datetime.now().month
             if 'calendar_year' not in st.session_state:
@@ -48,17 +47,17 @@ def display_calendar(user_id):
             month_name = calendar.month_name[st.session_state.calendar_month]
             st.subheader(f"{month_name} {st.session_state.calendar_year}")
         
-        # Create calendar grid
+        # Kalender erstellen
         cal = calendar.monthcalendar(st.session_state.calendar_year, st.session_state.calendar_month)
         
-        # Display weekday headers with custom styling
+        # Custom CSS Styling für Kalender. Übernommen aus ChatGPT
         weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         cols = st.columns(7)
         for i, col in enumerate(cols):
             with col:
                 st.markdown(f"<div style='text-align: center; font-weight: bold;'>{weekdays[i]}</div>", unsafe_allow_html=True)
         
-        # Add global CSS for hover effect - UPDATED VERSION
+        # Design Elemente und Hover Effekte für unseren Kalender von ChatGPT kopiert
         st.markdown("""
         <style>
         .day-cell {
@@ -126,31 +125,31 @@ def display_calendar(user_id):
         </style>
         """, unsafe_allow_html=True)
         
-        # Display calendar days with events - UPDATED VERSION
+        # Kalender anzeigen
         for week_idx, week in enumerate(cal):
             cols = st.columns(7)
             for i, day in enumerate(week):
                 with cols[i]:
                     if day == 0:
-                        # Empty cell for days not in this month
+                        # Leere Zeile für Tage, die nicht im Monat sind. Übernommen von ChatGPT
                         st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
                     else:
-                        # Create a date object for this day
+                        # Datum erstellen
                         current_date = datetime(st.session_state.calendar_year, st.session_state.calendar_month, day)
                         date_str = current_date.strftime("%Y-%m-%d")
                         
-                        # Check if we have events for this day
+                        # Prüfen ob es Einträge für diesen Tag gibt
                         day_events = [e for e in st.session_state.calendar_events if e['date'] == date_str]
                         
-                        # Build the HTML for this day
+                        # HTML für den Tag erstellen, übernommen von ChatGPT
                         html = f'<div class="day-cell{" day-cell-events" if day_events else ""}">'
                         html += f'<div class="day-number">{day}</div>'
                         
-                        # Container for events with overflow control
+                        # Container für jedes Event und Overflow verhidnern, übernommen von ChatGPT
                         if day_events:
                             html += '<div class="events-container">'
                             
-                            # Add mini event previews
+                            # Preview hinzufügen, aus ChatGPT übernommen
                             for event in day_events:
                                 html += f'<div class="event-mini" style="background-color: {event["color"]};">'
                                 html += f'{event["time"]} {event["title"][:10]}...'
@@ -158,7 +157,7 @@ def display_calendar(user_id):
                             
                             html += '</div>'
                             
-                            # Add full event details (hidden until hover)
+                            # Inhalt hinzufügen, der beim Hover angezeigt wird, aus ChatGPT übernommen
                             html += '<hr style="margin: 3px 0;">'
                             for event in day_events:
                                 html += f'<div class="event-full" style="background-color: {event["color"]};">'
@@ -167,12 +166,12 @@ def display_calendar(user_id):
                             
                         html += '</div>'
                         
-                        # Render the HTML
+                        # Rendern vom HTML
                         st.markdown(html, unsafe_allow_html=True)
-            # Close the week container
+            # Wochen Container schließen
             st.markdown("</div>", unsafe_allow_html=True)
         
-        # Event management section
+        # Verwaltung der einzelnen Events
         st.subheader("Ereignisse verwalten")
         
         tab1, tab2 = st.tabs(["Ereignis hinzufügen", "Ereignisse anzeigen/bearbeiten"])
@@ -193,14 +192,14 @@ def display_calendar(user_id):
                     ["Studiensitzung", "Vorlesung", "Prüfung", "Fällige Aufgabe", "Gruppenbesprechung", "Sonstiges"]
                 )
                 
-                # Color mapping for event types
+                # VErschiedene Farben für die Events, damit der Nutzer die auseinadnerhalten kann
                 color_map = {
-                    "Studiensitzung": "#ffcccc",  # Light red
-                    "Vorlesung": "#ccffcc",        # Light green
-                    "Prüfung": "#ffaaaa",           # Darker red
-                    "Fällige Aufgabe": "#ffffcc", # Light yellow
-                    "Gruppenbesprechung": "#ccccff",  # Light blue
-                    "Sonstiges": "#f0f0f0"           # Light grey
+                    "Studiensitzung": "#ffcccc",
+                    "Vorlesung": "#ccffcc", 
+                    "Prüfung": "#ffaaaa",      
+                    "Fällige Aufgabe": "#ffffcc", 
+                    "Gruppenbesprechung": "#ccccff", 
+                    "Sonstiges": "#f0f0f0"     
                 }
                 
                 submit_button = st.form_submit_button("Event hinzufügen")
@@ -233,7 +232,7 @@ def display_calendar(user_id):
             if not st.session_state.calendar_events:
                 st.info("Noch keine Veranstaltungen geplant.")
             else:
-                # Group events by date for better organization
+                # Events nach Datum gruppieren
                 from collections import defaultdict
                 events_by_date = defaultdict(list)
                 
@@ -242,16 +241,17 @@ def display_calendar(user_id):
                     formatted_date = date_obj.strftime("%A, %B %d, %Y")
                     events_by_date[formatted_date].append(event)
                 
-                # Sort dates chronologically
+                # DAtums chronologisch sortieren
                 sorted_dates = sorted(events_by_date.keys(),
                                       key=lambda x: datetime.strptime(x, "%A, %B %d, %Y"))
                 
-                # Display events by date
+                # Einträge nach DAtum sortiert anzeigen
                 for date in sorted_dates:
                     with st.expander(date):
                         for i, event in enumerate(events_by_date[date]):
                             col1, col2 = st.columns([5, 1])
                             with col1:
+                                # styling von Chatgpt empfohlen
                                 st.markdown(
                                     f"""<div style='background-color: {event['color']}; padding: 10px;
                                      border-radius: 5px; margin-bottom: 5px;'>
@@ -269,22 +269,6 @@ def display_calendar(user_id):
                                     else:
                                         st.error("Ereignis konnte nicht aus der Datenbank gelöscht werden.")
     
-    # Google Calendar Sync Tab
+    # Google Calendar Sync Tab. Import aus dem google_calendar_sync.py Modul
     with cal_tab2:
         display_google_calendar_sync(user_id)
-
-
-# Function to integrate with your database later
-def save_events_to_db(user_id, events):
-    """Speichern von Ereignissen in der Datenbank - Platzhalter für eine zukünftige Implementierung"""
-    # This will be implemented when you're ready to connect to your database
-    pass
-
-# Function to load events from your database later
-def load_events_from_db(user_id):
-    """Laden von Ereignissen aus der Datenbank - Platzhalter für eine zukünftige Implementierung"""
-    # This will be implemented when you're ready to connect to your database
-    return []
-
-# To integrate with your main app, you can add this to your dashboard.py navigation
-# or create a new file called calendar.py with this code and import it in your main app

@@ -38,7 +38,7 @@ def get_db_engine():
 
 # --- Database Connection Configuration ---
 def get_azure_db_engine():
-    """Creates and returns a SQLAlchemy engine for Azure SQL Database."""
+    """Einstiegspunkt für dashboardaErzeugt und liefert eine SQLAlchemy-Engine für Azure SQL Database."""
     server = os.getenv("DB_SERVER", "studybuddyhsg.database.windows.net")
     database = os.getenv("DB_DATABASE", "CS-Project-DB")
     username = os.getenv("DB_USERNAME", "CloudSA74f1c350")
@@ -46,7 +46,7 @@ def get_azure_db_engine():
     driver = os.getenv("DB_DRIVER", "{ODBC Driver 18 for SQL Server}")
 
     if not password:
-        raise ValueError("DB_PASSWORD environment variable not set.")
+        raise ValueError("Die Umgebungsvariable DB_PASSWORD ist nicht gesetzt.")
 
     conn_str = (
         f"Driver={driver};"
@@ -74,10 +74,10 @@ def get_azure_db_engine():
         
         # Test connection
         with engine.connect():
-            print("Successfully connected to Azure SQL Database.")
+            print("Erfolgreich mit der Azure SQL-Datenbank verbunden.")
         return engine
     except Exception as e:
-        print(f"Error connecting to Azure SQL Database: {e}")
+        print(f"Fehler beim Verbinden mit der Azure SQL-Datenbank: {e}")
         raise
 
 # Initialize engine and session factory
@@ -88,7 +88,7 @@ Base = declarative_base()
 # Context manager for database sessions
 @contextmanager
 def get_db_session():
-    """Context manager for database sessions to ensure proper cleanup."""
+    """Kontextmanager für Datenbanksitzungen, um eine ordnungsgemäße Bereinigung zu gewährleisten."""
     session = SessionLocal()
     try:
         yield session
@@ -205,25 +205,25 @@ class StudyTask(Base):
 
 # --- Database Initialization ---
 def init_db():
-    """Creates database tables if they don't exist."""
+    """Erstellt Datenbanktabellen, wenn sie nicht existieren."""
     try:
         Base.metadata.create_all(bind=engine)
-        print("Database tables checked/created successfully.")
+        print("Datenbanktabellen erfolgreich geprüft/erstellt.")
     except OperationalError as e:
-        print(f"Database connection error during init_db: {e}")
+        print(f"Datenbankverbindungsfehler während init_db: {e}")
     except Exception as e:
-        print(f"An error occurred during table creation: {e}")
+        print(f"Bei der Erstellung der Tabelle ist ein Fehler aufgetreten: {e}")
 
 # --- Password Utilities ---
 def hash_password(password: str) -> str:
-    """Hashes a password using bcrypt."""
+    """Verschlüsselt ein Passwort mit bcrypt."""
     pwd_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(pwd_bytes, salt)
     return hashed_password.decode("utf-8")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain password against a hashed password."""
+    """Überprüft ein einfaches Passwort mit einem gehashten Passwort."""
     try:
         password_bytes = plain_password.encode("utf-8")
         hashed_password_bytes = hashed_password.encode("utf-8")
@@ -233,7 +233,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # --- User Management ---
 def add_user(username: str, password: str, email: str) -> Optional[int]:
-    """Adds a new user to the database."""
+    """Fügt einen neuen Benutzer in die Datenbank ein."""
     with get_db_session() as session:
         try:
             # Check if username or email already exists
@@ -241,32 +241,32 @@ def add_user(username: str, password: str, email: str) -> Optional[int]:
                 (User.username == username) | (User.email == email)
             ).first()
             if existing_user:
-                print(f"Username '{username}' or Email '{email}' already exists.")
+                print(f"Username '{username}' oder Email '{email}' existiert bereits.")
                 return None
 
             hashed_pw = hash_password(password)
             new_user = User(username=username, hashed_password=hashed_pw, email=email)
             session.add(new_user)
             session.flush()  # Flush to get the ID without committing
-            print(f"User '{username}' added successfully with ID: {new_user.id}")
+            print(f"User '{username}' erfolgreich hinzugefügt mit ID: {new_user.id}")
             return new_user.id
         except IntegrityError:
-            print(f"Database integrity error adding user: {username}")
+            print(f"Datenbankintegritätsfehler beim Hinzufügen eines Benutzers: {username}")
             return None
 
 def authenticate(username: str, password: str) -> Optional[Tuple[int, str]]:
-    """Authenticates a user by username and password."""
+    """Authentifiziert einen Benutzer anhand des Benutzernamens und des Passworts."""
     with get_db_session() as session:
         user = session.query(User).filter(User.username == username).first()
         if user and verify_password(password, user.hashed_password):
-            print(f"User '{username}' authenticated successfully.")
+            print(f"User '{username}' erfolgreich authentifiziert.")
             return user.id, user.username
-        print(f"Authentication failed for user '{username}'.")
+        print(f"Authentifizierung für Benutzer fehlgeschlagen'{username}'.")
         return None
 
 # --- Learning Type Management ---
 def get_learning_type_status(user_id: int) -> Tuple[Optional[str], bool]:
-    """Gets the user's learning type and completion status."""
+    """Ermittelt den Lerntyp und den Abschlussstatus des Benutzers."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         if user:
@@ -274,58 +274,58 @@ def get_learning_type_status(user_id: int) -> Tuple[Optional[str], bool]:
         return None, False
 
 def update_learning_type(user_id: int, learning_type: str) -> bool:
-    """Updates the user's learning type and marks it as completed."""
+    """Aktualisiert den Lerntyp des Benutzers und markiert ihn als abgeschlossen."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         if not user:
-            print(f"User not found for ID: {user_id}")
+            print(f"Benutzer für ID nicht gefunden: {user_id}")
             return False
         
         user.learning_type = learning_type
         user.learning_type_completed = 1
-        print(f"Learning type updated for user ID: {user_id}")
+        print(f"Lerntyp für Benutzer-ID aktualisiert: {user_id}")
         return True
 
 # --- Session Management ---
 def log_session(user_id: int) -> Optional[int]:
-    """Logs a new user session."""
+    """Protokolliert eine neue Benutzersitzung."""
     with get_db_session() as session:
         new_session = UserSession(user_id=user_id, login_time=datetime.utcnow())
         session.add(new_session)
         session.flush()
-        print(f"Session logged for user ID: {user_id}. Session ID: {new_session.id}")
+        print(f"Für die Benutzer-ID protokollierte Sitzung: {user_id}. Session ID: {new_session.id}")
         return new_session.id
 
 # --- Token Management ---
 def generate_auth_token(user_id: int) -> Optional[str]:
-    """Generates and stores a new authentication token for a user."""
+    """Erzeugt und speichert ein neues Authentifizierungs-Token für einen Benutzer."""
     with get_db_session() as session:
         token = secrets.token_hex(32)
         expiry = datetime.utcnow() + timedelta(days=7)
         
         new_token = AuthToken(user_id=user_id, token=token, expires_at=expiry)
         session.add(new_token)
-        print(f"Auth token generated for user ID: {user_id}")
+        print(f"Für die Benutzer-ID generiertes Auth-Token: {user_id}")
         return token
 
 def validate_auth_token(token: str) -> Optional[Tuple[int, str]]:
-    """Validates an authentication token and returns user info if valid."""
+    """Validiert ein Authentifizierungs-Token und gibt bei Gültigkeit Benutzerinformationen zurück."""
     with get_db_session() as session:
         auth_token = session.query(AuthToken).filter(AuthToken.token == token).first()
         if not auth_token or auth_token.expires_at <= datetime.utcnow():
-            print(f"Auth token invalid or expired")
+            print(f"Auth-Token ungültig oder abgelaufen")
             return None
             
         user = session.query(User).filter(User.id == auth_token.user_id).first()
         if not user:
-            print(f"User not found for token")
+            print(f"Benutzer für Token nicht gefunden")
             return None
             
-        print(f"Auth token validated for user ID: {user.id}")
+        print(f"Auth-Token für Benutzer-ID validiert: {user.id}")
         return user.id, user.username
 
 def generate_session_token(user_id: int, days_valid: int = 30) -> Optional[str]:
-    """Generates and stores a new persistent session token for a user."""
+    """Erzeugt und speichert ein neues persistentes Sitzungs-Token für einen Benutzer."""
     with get_db_session() as session:
         # Clean up expired tokens for this user
         session.query(SessionToken).filter(
@@ -338,49 +338,49 @@ def generate_session_token(user_id: int, days_valid: int = 30) -> Optional[str]:
         
         new_token = SessionToken(user_id=user_id, token=token, expires_at=expiry)
         session.add(new_token)
-        print(f"Session token generated for user ID: {user_id}")
+        print(f"Für die Benutzer-ID generiertes Session-Token: {user_id}")
         return token
 
 def validate_session_token(token: str) -> Optional[Tuple[int, str]]:
-    """Validates a session token and returns user info if valid."""
+    """Validiert ein Sitzungs-Token und gibt bei Gültigkeit Benutzerinformationen zurück."""
     with get_db_session() as session:
         session_token = session.query(SessionToken).filter(SessionToken.token == token).first()
         if not session_token or session_token.expires_at <= datetime.utcnow():
             if session_token:
                 # Clean up expired token
                 session.delete(session_token)
-            print(f"Session token invalid or expired")
+            print(f"Session-Token ungültig oder abgelaufen")
             return None
             
         user = session.query(User).filter(User.id == session_token.user_id).first()
         if not user:
-            print(f"User not found for session token")
+            print(f"Benutzer für Sitzungs-Token nicht gefunden")
             return None
             
         # Extend token validity (sliding session)
         session_token.expires_at = datetime.utcnow() + timedelta(days=30)
-        print(f"Session token validated for user ID: {user.id}")
+        print(f"Session-Token für Benutzer-ID validiert: {user.id}")
         return user.id, user.username
 
 def delete_session_token(token: str) -> bool:
-    """Deletes a specific session token from the database."""
+    """Löscht ein bestimmtes Sitzungs-Token aus der Datenbank."""
     with get_db_session() as session:
         deleted_count = session.query(SessionToken).filter(
             SessionToken.token == token
         ).delete(synchronize_session=False)
         
         if deleted_count > 0:
-            print(f"Session token {token[:8]}... deleted successfully.")
+            print(f"Session token {token[:8]}... erfolgreich gelöscht.")
             return True
-        print(f"Session token {token[:8]}... not found for deletion.")
+        print(f"Session token {token[:8]}... zur Löschung nicht gefunden.")
         return False
 
 # --- Calendar Event Management ---
 def save_calendar_event(user_id: int, event_data: Dict[str, Any]) -> Optional[int]:
-    """Saves a calendar event to the database."""
+    """Speichert ein Kalenderevent in der Datenbank."""
     with get_db_session() as session:
         # Check if event type is a deadline type
-        is_deadline = event_data.get('type') in ["Exam", "Assignment Due", "Project Due"]
+        is_deadline = event_data.get('type') in ["Prüfung", "Aufgabe fällig", "Projekt fällig"]
         
         new_event = CalendarEvent(
             user_id=user_id,
@@ -394,11 +394,11 @@ def save_calendar_event(user_id: int, event_data: Dict[str, Any]) -> Optional[in
         )
         session.add(new_event)
         session.flush()
-        print(f"Event saved for user ID: {user_id}. Event ID: {new_event.id}")
+        print(f"Ereignis für Benutzer-ID gespeichert: {user_id}. Event ID: {new_event.id}")
         return new_event.id
 
 def get_calendar_events(user_id: int) -> List[Dict[str, Any]]:
-    """Gets all calendar events for a user."""
+    """Ruft alle Kalenderereignisse für einen Benutzer ab."""
     with get_db_session() as session:
         events = session.query(CalendarEvent).filter(
             CalendarEvent.user_id == user_id
@@ -420,18 +420,18 @@ def get_calendar_events(user_id: int) -> List[Dict[str, Any]]:
         ]
 
 def update_calendar_event(event_id: int, event_data: Dict[str, Any]) -> bool:
-    """Updates an existing calendar event."""
+    """Ruft alle Kalenderereignisse für einen Benutzer ab."""
     with get_db_session() as session:
         event = session.query(CalendarEvent).filter(
             CalendarEvent.id == event_id
         ).first()
         
         if not event:
-            print(f"Event not found for ID: {event_id}")
+            print(f"Ereignis für ID nicht gefunden: {event_id}")
             return False
             
         # Check if event type is a deadline type
-        is_deadline = event_data.get('type') in ["Exam", "Assignment Due", "Project Due"]
+        is_deadline = event_data.get('type') in ["Prüfung", "Aufgabe fällig", "Projekt fällig"]
         
         event.title = event_data.get('title', event.title)
         event.date = event_data.get('date', event.date)
@@ -441,25 +441,25 @@ def update_calendar_event(event_id: int, event_data: Dict[str, Any]) -> bool:
         event.is_deadline = is_deadline
         event.priority = event_data.get('priority', event.priority)
         
-        print(f"Event updated successfully. Event ID: {event_id}")
+        print(f"Ereignis erfolgreich aktualisiert. Ereignis-ID:  {event_id}")
         return True
 
 def delete_calendar_event(event_id: int) -> bool:
-    """Deletes a calendar event."""
+    """Löscht ein Kalenderereignis."""
     with get_db_session() as session:
         deleted_count = session.query(CalendarEvent).filter(
             CalendarEvent.id == event_id
         ).delete(synchronize_session=False)
         
         if deleted_count > 0:
-            print(f"Event deleted successfully. Event ID: {event_id}")
+            print(f"Ereignis erfolgreich gelöscht. Ereignis-ID: {event_id}")
             return True
-        print(f"Event not found for ID: {event_id}")
+        print(f"Ereignis für ID nicht gefunden: {event_id}")
         return False
 
 # --- Study Task Management ---
 def save_study_task(user_id: int, task_data: Dict[str, Any]) -> Optional[int]:
-    """Saves a study task to the database."""
+    """Speichert eine Studienaufgabe in der Datenbank."""
     with get_db_session() as session:
         # Convert methods list to JSON string
         methods_json = json.dumps(task_data.get('methods', []))
@@ -479,11 +479,11 @@ def save_study_task(user_id: int, task_data: Dict[str, Any]) -> Optional[int]:
         
         session.add(new_task)
         session.flush()
-        print(f"Study task saved for user ID: {user_id}. Task ID: {new_task.id}")
+        print(f"Studienaufgabe für User-ID gespeichert: {user_id}. Task ID: {new_task.id}")
         return new_task.id
 
 def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
-    """Gets all study tasks for a user."""
+    """Ruft alle Lernaufgaben für einen Benutzer ab."""
     with get_db_session() as session:
         tasks = session.query(StudyTask).filter(
             StudyTask.user_id == user_id
@@ -508,14 +508,14 @@ def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
         ]
 
 def update_study_task(task_id: int, update_data: Dict[str, Any]) -> bool:
-    """Updates an existing study task."""
+    """Aktualisiert eine bestehende Studienaufgabe."""
     with get_db_session() as session:
         task = session.query(StudyTask).filter(
             StudyTask.id == task_id
         ).first()
         
         if not task:
-            print(f"Study task not found for ID: {task_id}")
+            print(f"Studienaufgabe für ID nicht gefunden: {task_id}")
             return False
             
         # Update fields if provided
@@ -532,43 +532,43 @@ def update_study_task(task_id: int, update_data: Dict[str, Any]) -> bool:
         if 'completed' in update_data:
             task.completed = update_data['completed']
         
-        print(f"Study task updated. Task ID: {task_id}")
+        print(f"Studienaufgabe aktualisiert. Task ID: {task_id}")
         return True
 
 def update_study_task_status(task_id: int, completed: bool) -> bool:
-    """Updates the completion status of a study task."""
+    """Aktualisiert den Abschlussstatus einer Studienaufgabe."""
     with get_db_session() as session:
         task = session.query(StudyTask).filter(
             StudyTask.id == task_id
         ).first()
         
         if not task:
-            print(f"Study task not found for ID: {task_id}")
+            print(f"Study task für ID nicht gefunden: {task_id}")
             return False
             
         task.completed = completed
-        print(f"Study task status updated. Task ID: {task_id}")
+        print(f"Status der Studienaufgaben aktualisiert. Task ID: {task_id}")
         return True
 
 def delete_study_task(task_id: int) -> bool:
-    """Deletes a study task."""
+    """Löscht eine Studienaufgabe."""
     with get_db_session() as session:
         deleted_count = session.query(StudyTask).filter(
             StudyTask.id == task_id
         ).delete(synchronize_session=False)
         
         if deleted_count > 0:
-            print(f"Study task deleted successfully. Task ID: {task_id}")
+            print(f"Studienaufgabe erfolgreich gelöscht. Task ID: {task_id}")
             return True
-        print(f"Study task not found for ID: {task_id}")
+        print(f"Studienaufgabe für ID nicht gefunden: {task_id}")
         return False
 
 # Initialize database tables if running as main script
 if __name__ == "__main__":
-    print("Initializing database...")
+    print("Initialisiere Datenbank...")
     try:
         init_db()
     except ValueError as e:
-        print(f"Configuration Error: {e}")
+        print(f"Konfigurations-Error: {e}")
     except Exception as e:
-        print(f"Failed to initialize database: {e}")
+        print(f"Error beim Initialisieren der Datenbank: {e}")

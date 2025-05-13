@@ -43,24 +43,8 @@ import os
 load_dotenv()
 
 # Hole den API-Key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client: Optional[OpenAI] = None
-if OPENAI_AVAILABLE and OPENAI_API_KEY:
-    try:
-        client = OpenAI(api_key=OPENAI_API_KEY)
-    except Exception as e:
-        if "st" in globals() and hasattr(st, "error"):
-            st.error(f"Der OpenAI-Client konnte nicht initialisiert werden: {e}")
-        else:
-            print(f"ERROR: OpenAI-Client konnte nicht initialisiert werden: {e}")
-        client = None
-elif OPENAI_AVAILABLE and not OPENAI_API_KEY:
-    if "st" in globals() and hasattr(st, "error"):
-        st.error("OpenAI API-Schlüssel nicht gefunden. Bitte stellen Sie ihn so ein, dass die KI-Lernplangenerierung verwendet wird.")
-    else:
-        print("ERROR: OpenAI-API-Schlüssel nicht gefunden.")
-    client = None
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
 
 # --- Constants --- 
 MINUTES_PER_ECTS_PER_WEEK = 45

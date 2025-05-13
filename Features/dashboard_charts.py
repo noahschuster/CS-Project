@@ -4,8 +4,8 @@ from learning_suggestions import get_study_tasks
 from database_manager import get_calendar_events
 import streamlit as st
 
+# Charts für das Dashboard erstellen
 def create_pie_chart_learning_time_by_subject(user_id):
-    """Erstellt ein Tortendiagramm für die Lernzeiten nach Thema."""
     study_tasks = get_study_tasks(user_id)
     
     # Daten aggregieren

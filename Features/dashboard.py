@@ -1,46 +1,35 @@
-# dashboard.py
-import os
 import streamlit as st
 from datetime import datetime, timedelta
 import streamlit.components.v1 as components
-from streamlit_cookies_manager import EncryptedCookieManager
-from functools import lru_cache
 import pandas as pd
-# from procrastination_risk import display_procrastination_assessment, display_dashboard_warning
 
-# Import specific functions to avoid unnecessarily importing entire modules
+# Import unserer Module
 from api_connection import get_user_courses
 from utils import get_user_sessions, get_user_learning_type
 from database_manager import delete_session_token, get_calendar_events
-
 from dashboard_charts import (
     create_pie_chart_learning_time_by_subject,
     create_pie_chart_next_week_usage
 )
 
-
-
-# Constants
+# Konstanten
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
-# Cache functions for performance - updating to use st.cache_data instead of lru_cache
+# Cache Funktionen um die Datenbankabfragen zu optimieren (Empfehlung von Stackoverflow um Ladezeiten zu reduzieren)
 @st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_learning_type(user_id):
-    """Cached version of get_user_learning_type to reduce DB calls"""
     return get_user_learning_type(user_id)
 
 @st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_courses(user_id):
-    """Cached version of get_user_courses to reduce DB calls"""
     return get_user_courses(user_id)
 
 @st.cache_data(ttl=300, max_entries=32)
 def get_cached_calendar_events(user_id):
-    """Cached version of get_calendar_events to reduce DB calls"""
     return get_calendar_events(user_id)
 
+# prüfe ob Nutzer eingeloggt ist
 def check_login():
-    """Verifies user login status"""
     if not st.session_state.get("logged_in", False):
         st.warning("Please log in to access the dashboard.")
         st.stop()

@@ -1,6 +1,6 @@
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import numpy as np
 from datetime import datetime, timedelta
-import pandas as pd
 
 # --- Mock data functions for testing purposes ---
 def get_study_tasks(user_id):
@@ -10,46 +10,51 @@ def get_study_tasks(user_id):
         {"course_title": "History", "start_time": "15:00", "end_time": "16:00"},     # 1h
         {"course_title": "Mathematics", "start_time": "10:00", "end_time": "12:00"}, # 2h (total Math: 4h)
         {"course_title": "Chemistry", "start_time": "08:00", "end_time": "09:30"},   # 1.5h
-        # Total 8.0 hours: Math 50%, Physics 18.75%, History 12.5%, Chemistry 18.75%
     ]
 
 def get_calendar_events(user_id):
     today = datetime.now()
     return [
-        {"date": (today + timedelta(days=1)).strftime("%Y-%m-%d")}, # Event 1
-        {"date": (today + timedelta(days=2)).strftime("%Y-%m-%d")}, # Event 2
-        {"date": (today + timedelta(days=3)).strftime("%Y-%m-%d")}, # Event 3 (used_hours = 3)
-        {"date": (today + timedelta(days=8)).strftime("%Y-%m-%d")}  # This one is outside next 7 days
+        {"date": (today + timedelta(days=1)).strftime("%Y-%m-%d")}, 
+        {"date": (today + timedelta(days=2)).strftime("%Y-%m-%d")}, 
+        {"date": (today + timedelta(days=3)).strftime("%Y-%m-%d")}, 
+        {"date": (today + timedelta(days=8)).strftime("%Y-%m-%d")}  
     ]
 # --- End of Mock data functions ---
 
-# Apple-inspired Aesthetics
-APPLE_FONT_FAMILY = "-apple-system, BlinkMacSystemFont, San Francisco, Inter, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
-APPLE_TEXT_COLOR = "#1d1d1f" # Near black for primary text
-APPLE_SECONDARY_TEXT_COLOR = "#6e6e73" # Grey for secondary text
-APPLE_BACKGROUND_COLOR = "rgba(0,0,0,0)" # Transparent for Streamlit integration
+# Apple-inspired Aesthetics for Matplotlib
+APPLE_FONT_FAMILY_MPL = "Arial" 
+APPLE_TEXT_COLOR_MPL = "#1D1D1F" 
+APPLE_SECONDARY_TEXT_COLOR_MPL = "#6E6E73" 
 
-# Refined Palettes (inspired by Apple's softer, clearer tones)
-SUBJECT_PALETTE_APPLE = ["#007AFF", "#34C759", "#FF9500", "#AF52DE", "#5AC8FA", "#FF3B30", "#FFCC00"] # Blue, Green, Orange, Purple, Teal, Red, Yellow
-USAGE_PALETTE_APPLE = ["#FF9500", "#007AFF"] # Orange for used, Blue for free
+SUBJECT_PALETTE_APPLE_MPL = ["#0A84FF", "#30D158", "#FF9F0A", "#BF5AF2", "#64D2FF", "#FF453A", "#FFD60A"]
+USAGE_PALETTE_APPLE_MPL = ["#FF9F0A", "#0A84FF"]
 
-TITLE_FONT_SIZE_APPLE = 20
-LEGEND_FONT_SIZE_APPLE = 13
-ANNOTATION_FONT_SIZE_APPLE = 18
-SLICE_TEXT_FONT_SIZE_APPLE = 12
-CHART_HEIGHT_APPLE = 450 # Increased for more vertical space
+# Increased font sizes as per user request
+TITLE_FONT_SIZE_MPL = 18
+LABEL_FONT_SIZE_MPL = 11 # For percentages on slices and legend labels
+SLICE_LABEL_FONT_SIZE_MPL = 11 # For labels if drawn outside by matplotlib (not currently used this way)
+ANNOTATION_FONT_SIZE_MPL = 16 # For center annotation
+FIG_DPI = 150
 
-def create_pie_chart_learning_time_by_subject(user_id):
+def create_donut_chart_lernzeiten_seaborn(user_id):
     study_tasks = get_study_tasks(user_id)
-    fig = go.Figure()
+    plt.style.use("seaborn-v0_8-whitegrid") 
+    plt.rcParams["font.family"] = APPLE_FONT_FAMILY_MPL
+    plt.rcParams["text.color"] = APPLE_TEXT_COLOR_MPL
+    plt.rcParams["axes.labelcolor"] = APPLE_TEXT_COLOR_MPL
+    plt.rcParams["xtick.color"] = APPLE_SECONDARY_TEXT_COLOR_MPL
+    plt.rcParams["ytick.color"] = APPLE_SECONDARY_TEXT_COLOR_MPL
+
+    fig, ax = plt.subplots(figsize=(7, 5.25), dpi=FIG_DPI) # Slightly increased figsize for larger fonts
+    fig.patch.set_alpha(0) 
+    ax.patch.set_alpha(0)  
 
     if not study_tasks:
-        fig.update_layout(
-            title_text="Lernzeiten nach Thema",
-            title_x=0.5, title_y=0.97, title_font=dict(size=TITLE_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-            annotations=[dict(text="Keine Lerndaten verfügbar.", showarrow=False, font=dict(size=16, family=APPLE_FONT_FAMILY, color=APPLE_SECONDARY_TEXT_COLOR))],
-            xaxis_visible=False, yaxis_visible=False, paper_bgcolor=APPLE_BACKGROUND_COLOR, plot_bgcolor=APPLE_BACKGROUND_COLOR, height=CHART_HEIGHT_APPLE
-        )
+        ax.text(0.5, 0.5, "Keine Lerndaten verfügbar.", ha="center", va="center", fontsize=ANNOTATION_FONT_SIZE_MPL, color=APPLE_SECONDARY_TEXT_COLOR_MPL)
+        ax.set_title("Lernzeiten nach Thema", fontsize=TITLE_FONT_SIZE_MPL, color=APPLE_TEXT_COLOR_MPL, pad=20)
+        ax.axis("off")
+        plt.tight_layout()
         return fig
 
     subject_times = {}
@@ -62,63 +67,60 @@ def create_pie_chart_learning_time_by_subject(user_id):
             duration = (end_time_obj - start_time_obj).seconds / 3600
             if duration < 0: duration += 24
         except (ValueError, KeyError):
-            continue 
+            continue
         subject_times[subject] = subject_times.get(subject, 0) + duration
         total_duration_all_subjects += duration
 
     if not subject_times:
-        fig.update_layout(
-            title_text="Lernzeiten nach Thema",
-            title_x=0.5, title_y=0.97, title_font=dict(size=TITLE_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-            annotations=[dict(text="Keine gültigen Lerndaten.", showarrow=False, font=dict(size=16, family=APPLE_FONT_FAMILY, color=APPLE_SECONDARY_TEXT_COLOR))],
-            xaxis_visible=False, yaxis_visible=False, paper_bgcolor=APPLE_BACKGROUND_COLOR, plot_bgcolor=APPLE_BACKGROUND_COLOR, height=CHART_HEIGHT_APPLE
-        )
+        ax.text(0.5, 0.5, "Keine gültigen Lerndaten.", ha="center", va="center", fontsize=ANNOTATION_FONT_SIZE_MPL, color=APPLE_SECONDARY_TEXT_COLOR_MPL)
+        ax.set_title("Lernzeiten nach Thema", fontsize=TITLE_FONT_SIZE_MPL, color=APPLE_TEXT_COLOR_MPL, pad=20)
+        ax.axis("off")
+        plt.tight_layout()
         return fig
 
     labels = list(subject_times.keys())
-    values = list(subject_times.values())
+    sizes = list(subject_times.values())
+    
+    explode = [0.03] * len(labels)
 
-    fig.add_trace(go.Pie(
-        labels=labels, 
-        values=values, 
-        hole=.60, # Larger hole for a cleaner, modern Apple-like look
-        hoverinfo="label+percent+value",
-        hovertemplate="<b>%{label}</b><br>Stunden: %{value:.1f}h<br>Anteil: %{percent}<extra></extra>", 
-        textinfo="label+percent", # Show label and percent outside
-        textposition="outside",
-        textfont=dict(size=SLICE_TEXT_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        outsidetextfont=dict(size=SLICE_TEXT_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        marker=dict(colors=SUBJECT_PALETTE_APPLE, line=dict(color=
-"#FFFFFF"
-, width=3)), # Slightly thicker white lines for better separation
-        pull=0.01, # Very subtle pull, or can be removed
-        sort=True, direction="clockwise"
-    ))
+    wedges, texts, autotexts = ax.pie(sizes, explode=explode, labels=None, autopct="%1.1f%%", 
+                                      startangle=90, colors=SUBJECT_PALETTE_APPLE_MPL,
+                                      pctdistance=0.85, wedgeprops=dict(width=0.45, edgecolor="white", linewidth=2.5)) # Slightly wider donut, thicker lines
 
-    fig.update_layout(
-        title_text="Lernzeiten nach Thema",
-        title_x=0.5, title_y=0.95, title_font=dict(size=TITLE_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        showlegend=False, # Legend removed as textposition="outside" with labels should suffice
-        font=dict(family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        margin=dict(t=80, b=60, l=60, r=60), # Generous margins for outside text
-        paper_bgcolor=APPLE_BACKGROUND_COLOR, plot_bgcolor=APPLE_BACKGROUND_COLOR,
-        transition_duration=350,
-        height=CHART_HEIGHT_APPLE,
-        autosize=False,
-        width=None,
-        annotations=[
-            dict(text=f"Total<br><b>{total_duration_all_subjects:.1f} Std.</b>",
-                 x=0.5, y=0.5, font=dict(size=ANNOTATION_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR), showarrow=False)
-        ],
-        hoverlabel=dict(bgcolor="#FFFFFF", font=dict(size=14, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR), bordercolor="#EAEAEA")
-    )
+    for autotext_obj in autotexts: # Percentages
+        autotext_obj.set_color("white")
+        autotext_obj.set_fontsize(LABEL_FONT_SIZE_MPL)
+        autotext_obj.set_fontweight("bold")
+
+    ax.set_title("Lernzeiten nach Thema", fontsize=TITLE_FONT_SIZE_MPL, color=APPLE_TEXT_COLOR_MPL, pad=30) # Increased pad for title
+    
+    ax.text(0, 0, f"Total\n{total_duration_all_subjects:.1f} Std.", ha="center", va="center", fontsize=ANNOTATION_FONT_SIZE_MPL, color=APPLE_TEXT_COLOR_MPL, fontweight="medium")
+    
+    # Legend outside, Apple style (simple, clean)
+    # For better fitting with potentially larger fonts, adjust bbox_to_anchor or use a different loc if needed.
+    ax.legend(wedges, labels, title=None, loc="center left", bbox_to_anchor=(1.0, 0.5), 
+              fontsize=LABEL_FONT_SIZE_MPL, frameon=False, labelcolor=APPLE_TEXT_COLOR_MPL)
+
+    ax.axis("equal") 
+    plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust rect to make space for legend on the right
     return fig
 
-def create_pie_chart_next_week_usage(user_id):
+def create_donut_chart_next_week_seaborn(user_id):
     events = get_calendar_events(user_id)
+    plt.style.use("seaborn-v0_8-whitegrid")
+    plt.rcParams["font.family"] = APPLE_FONT_FAMILY_MPL
+    plt.rcParams["text.color"] = APPLE_TEXT_COLOR_MPL
+    plt.rcParams["axes.labelcolor"] = APPLE_TEXT_COLOR_MPL
+    plt.rcParams["xtick.color"] = APPLE_SECONDARY_TEXT_COLOR_MPL
+    plt.rcParams["ytick.color"] = APPLE_SECONDARY_TEXT_COLOR_MPL
+
+    fig, ax = plt.subplots(figsize=(7, 5.25), dpi=FIG_DPI)
+    fig.patch.set_alpha(0)
+    ax.patch.set_alpha(0)
+
     next_week_start = datetime.now()
     next_week_end = next_week_start + timedelta(days=7)
-    total_hours_in_week = 40 
+    total_hours_in_week = 40
     used_hours = 0
 
     if events:
@@ -128,71 +130,59 @@ def create_pie_chart_next_week_usage(user_id):
                 if not event_date_str: continue
                 event_date = datetime.strptime(event_date_str, "%Y-%m-%d")
                 if next_week_start.date() <= event_date.date() < next_week_end.date():
-                    used_hours += 1 
+                    used_hours += 3 
             except (ValueError, KeyError):
                 continue
 
     used_hours = min(used_hours, total_hours_in_week)
     free_hours = total_hours_in_week - used_hours
-    labels = ["Belegte Zeit", "Freie Zeit"]
-    values = [used_hours, free_hours]
-    current_palette = [USAGE_PALETTE_APPLE[0] if used_hours > 0 else "#EAEAEA", USAGE_PALETTE_APPLE[1] if free_hours > 0 else "#EAEAEA"]
-
-    texttemplate_list = []
-    # Only show text for slices with value > 0 to avoid clutter
-    if values[0] > 0:
-        texttemplate_list.append("%{label}<br>%{value:.0f}h (%{percent})")
-    else:
-        texttemplate_list.append("") # No text for zero value slice
     
-    if values[1] > 0:
-        texttemplate_list.append("%{label}<br>%{value:.0f}h (%{percent})")
-    else:
-        texttemplate_list.append("") # No text for zero value slice
+    chart_labels = ["Belegte Zeit", "Freie Zeit"]
+    sizes = [used_hours, free_hours]
+    current_palette = [USAGE_PALETTE_APPLE_MPL[0] if used_hours > 0 else "#E9E9EA", # Lighter grey for unused
+                       USAGE_PALETTE_APPLE_MPL[1] if free_hours > 0 else "#E9E9EA"]
+    explode = [0.03, 0.03]
 
-    fig = go.Figure()
-    fig.add_trace(go.Pie(
-        labels=labels, values=values, hole=.60,
-        hoverinfo="label+value+percent",
-        hovertemplate="<b>%{label}</b><br>Stunden: %{value:.0f}h<br>Anteil: %{percent}<extra></extra>",
-        textinfo="none", # Text will be handled by texttemplate or outside labels if preferred
-        texttemplate=texttemplate_list, 
-        textposition="outside", # Try outside to avoid overlap
-        textfont=dict(size=SLICE_TEXT_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        outsidetextfont=dict(size=SLICE_TEXT_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        marker=dict(colors=current_palette, line=dict(color="#FFFFFF", width=3)),
-        pull=0.01, sort=False
-    ))
+    # Custom autopct function for better label formatting
+    def make_autopct(values):
+        def my_autopct(pct):
+            total = sum(values)
+            val = int(round(pct*total/100.0))
+            if pct > 0:
+                return f"{val}h\n({pct:.1f}%)"
+            return ""
+        return my_autopct
 
-    fig.update_layout(
-        title_text=f"Geplante Zeit: Nächste Woche", # Simplified title
-        title_x=0.5, title_y=0.95, title_font=dict(size=TITLE_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        showlegend=False, # With only two items and outside text, legend might be redundant
-        font=dict(family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR),
-        margin=dict(t=80, b=60, l=60, r=60),
-        paper_bgcolor=APPLE_BACKGROUND_COLOR, plot_bgcolor=APPLE_BACKGROUND_COLOR,
-        transition_duration=350,
-        height=CHART_HEIGHT_APPLE,
-        autosize=False,
-        width=None,
-        annotations=[
-            dict(text=f"<b>{used_hours:.0f}h / {total_hours_in_week}h</b><br>Belegt", 
-                 x=0.5, y=0.5, font=dict(size=ANNOTATION_FONT_SIZE_APPLE, family=APPLE_FONT_FAMILY, color=USAGE_PALETTE_APPLE[0] if used_hours > 0 else APPLE_SECONDARY_TEXT_COLOR), showarrow=False)
-        ],
-        hoverlabel=dict(bgcolor="#FFFFFF", font=dict(size=14, family=APPLE_FONT_FAMILY, color=APPLE_TEXT_COLOR), bordercolor="#EAEAEA")
-    )
+    wedges, texts_pie, autotexts = ax.pie(sizes, explode=explode, labels=None, autopct=make_autopct(sizes),
+                                      startangle=90, colors=current_palette,
+                                      pctdistance=0.80, 
+                                      wedgeprops=dict(width=0.45, edgecolor="white", linewidth=2.5))
+    for autotext_obj in autotexts:
+        autotext_obj.set_color("white")
+        autotext_obj.set_fontsize(LABEL_FONT_SIZE_MPL)
+        autotext_obj.set_fontweight("bold")
+
+    ax.set_title(f"Geplante Zeit: Nächste Woche", fontsize=TITLE_FONT_SIZE_MPL, color=APPLE_TEXT_COLOR_MPL, pad=30)
+    ax.text(0, 0, f"{used_hours:.0f}h / {total_hours_in_week}h\nBelegt", ha="center", va="center", fontsize=ANNOTATION_FONT_SIZE_MPL, 
+            color=USAGE_PALETTE_APPLE_MPL[0] if used_hours > 0 else APPLE_SECONDARY_TEXT_COLOR_MPL, fontweight="medium")
+    
+    # For only two items, legend might be redundant if labels are clear on slices.
+    # If needed, can add a simple legend similarly to the first chart.
+    # ax.legend(wedges, chart_labels, title=None, loc="center left", bbox_to_anchor=(1.0, 0.5), fontsize=LABEL_FONT_SIZE_MPL, frameon=False, labelcolor=APPLE_TEXT_COLOR_MPL)
+
+    ax.axis("equal")
+    plt.tight_layout(rect=[0, 0, 0.9, 1]) # Adjust rect to ensure title and chart fit well
     return fig
 
 if __name__ == "__main__":
     sample_user_id = "test_user_123"
-    print("Generating chart for Lernzeiten nach Thema (Apple Style)...")
-    fig1 = create_pie_chart_learning_time_by_subject(sample_user_id)
-    fig1.show()
-    # fig1.write_html("learning_time_chart_apple.html")
+    
+    print("Generating Lernzeiten chart (Seaborn/Matplotlib Apple Style with larger fonts)...")
+    fig1 = create_donut_chart_lernzeiten_seaborn(sample_user_id)
+    plt.show() 
 
-    print("Generating chart for Geplante Zeit nächste Woche (Apple Style)...")
-    fig2 = create_pie_chart_next_week_usage(sample_user_id)
-    fig2.show()
-    # fig2.write_html("next_week_usage_chart_apple.html")
-    # print("Charts saved as HTML files for review (Apple Style).")
+    print("Generating Geplante Zeit chart (Seaborn/Matplotlib Apple Style with larger fonts)...")
+    fig2 = create_donut_chart_next_week_seaborn(sample_user_id)
+    plt.show() 
+    print("Charts generated. In Streamlit, use st.pyplot(fig1) and st.pyplot(fig2).")
 

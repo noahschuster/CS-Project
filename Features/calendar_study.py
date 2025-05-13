@@ -10,10 +10,10 @@ from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 
 
 def display_calendar(user_id):
-    st.title("Study Calendar")
+    st.title("Studienkalender")
     
     # Tab-System für Kalender und Google Sync
-    cal_tab1, cal_tab2 = st.tabs(["Calendar", "Google Calendar Sync"])
+    cal_tab1, cal_tab2 = st.tabs(["Kalender", "Google Kalender Sync"])
     
     with cal_tab1:
         # Lade Ereignisse aus der Datenbank statt Demo-Events zu verwenden
@@ -33,13 +33,13 @@ def display_calendar(user_id):
             if 'calendar_year' not in st.session_state:
                 st.session_state.calendar_year = datetime.now().year
                 
-            if st.button("◀ Previous Month"):
+            if st.button("◀ Vorheriger Monat"):
                 st.session_state.calendar_month -= 1
                 if st.session_state.calendar_month < 1:
                     st.session_state.calendar_month = 12
                     st.session_state.calendar_year -= 1
         with col3:
-            if st.button("Next Month ▶"):
+            if st.button("Nächster Monat ▶"):
                 st.session_state.calendar_month += 1
                 if st.session_state.calendar_month > 12:
                     st.session_state.calendar_month = 1
@@ -52,7 +52,7 @@ def display_calendar(user_id):
         cal = calendar.monthcalendar(st.session_state.calendar_year, st.session_state.calendar_month)
         
         # Display weekday headers with custom styling
-        weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         cols = st.columns(7)
         for i, col in enumerate(cols):
             with col:
@@ -173,14 +173,14 @@ def display_calendar(user_id):
             st.markdown("</div>", unsafe_allow_html=True)
         
         # Event management section
-        st.subheader("Manage Events")
+        st.subheader("Ereignisse verwalten")
         
-        tab1, tab2 = st.tabs(["Add Event", "View/Edit Events"])
+        tab1, tab2 = st.tabs(["Ereignis hinzufügen", "Ereignisse anzeigen/bearbeiten"])
         
         with tab1:
             with st.form("add_event_form"):
-                event_date = st.date_input("Date", datetime.now())
-                event_title = st.text_input("Event Title")
+                event_date = st.date_input("Datum", datetime.now())
+                event_title = st.text_input("Titel der Veranstaltung")
                 # Speichere die ausgewählte Zeit in einer Session-Variable, um sie zu erhalten
                 if 'selected_event_time' not in st.session_state:
                     st.session_state.selected_event_time = datetime.now().time()
@@ -189,21 +189,21 @@ def display_calendar(user_id):
                 st.session_state.selected_event_time = event_time
                 
                 event_type = st.selectbox(
-                    "Event Type",
-                    ["Study Session", "Lecture", "Exam", "Assignment Due", "Group Meeting", "Other"]
+                    "Titel der Veranstaltung",
+                    ["Studiensitzung", "Vorlesung", "Prüfung", "Fällige Aufgabe", "Gruppenbesprechung", "Sonstiges"]
                 )
                 
                 # Color mapping for event types
                 color_map = {
-                    "Study Session": "#ffcccc",  # Light red
-                    "Lecture": "#ccffcc",        # Light green
-                    "Exam": "#ffaaaa",           # Darker red
-                    "Assignment Due": "#ffffcc", # Light yellow
-                    "Group Meeting": "#ccccff",  # Light blue
-                    "Other": "#f0f0f0"           # Light grey
+                    "Studiensitzung": "#ffcccc",  # Light red
+                    "Vorlesung": "#ccffcc",        # Light green
+                    "Prüfung": "#ffaaaa",           # Darker red
+                    "Fällige Aufgabe": "#ffffcc", # Light yellow
+                    "Gruppenbesprechung": "#ccccff",  # Light blue
+                    "Sonstiges": "#f0f0f0"           # Light grey
                 }
                 
-                submit_button = st.form_submit_button("Add Event")
+                submit_button = st.form_submit_button("Event hinzufügen")
                 
                 if submit_button and event_title:
                     # Stelle sicher, dass die Zeit im richtigen Format ist
@@ -227,11 +227,11 @@ def display_calendar(user_id):
                         st.success(f"Event '{event_title}' added on {event_date.strftime('%Y-%m-%d')} at {time_str}")
                         st.rerun()
                     else:
-                        st.error("Failed to save event to database.")
+                        st.error("Ereignis konnte nicht in der Datenbank gespeichert werden.")
         
         with tab2:
             if not st.session_state.calendar_events:
-                st.info("No events scheduled yet.")
+                st.info("Noch keine Veranstaltungen geplant.")
             else:
                 # Group events by date for better organization
                 from collections import defaultdict
@@ -260,14 +260,14 @@ def display_calendar(user_id):
                                      unsafe_allow_html=True
                                 )
                             with col2:
-                                if st.button("Delete", key=f"del_{date}_{i}"):
+                                if st.button("Löschen", key=f"del_{date}_{i}"):
                                     # Lösche das Event aus der Datenbank
                                     if 'id' in event and delete_calendar_event(event['id']):
                                         st.session_state.calendar_events.remove(event)
-                                        st.success(f"Event '{event['title']}' deleted.")
+                                        st.success(f"Ereignis '{event['title']}' gelöscht.")
                                         st.rerun()
                                     else:
-                                        st.error("Failed to delete event from database.")
+                                        st.error("Ereignis konnte nicht aus der Datenbank gelöscht werden.")
     
     # Google Calendar Sync Tab
     with cal_tab2:
@@ -276,13 +276,13 @@ def display_calendar(user_id):
 
 # Function to integrate with your database later
 def save_events_to_db(user_id, events):
-    """Save events to the database - placeholder for future implementation"""
+    """Speichern von Ereignissen in der Datenbank - Platzhalter für eine zukünftige Implementierung"""
     # This will be implemented when you're ready to connect to your database
     pass
 
 # Function to load events from your database later
 def load_events_from_db(user_id):
-    """Load events from the database - placeholder for future implementation"""
+    """Laden von Ereignissen aus der Datenbank - Platzhalter für eine zukünftige Implementierung"""
     # This will be implemented when you're ready to connect to your database
     return []
 

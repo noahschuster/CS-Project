@@ -44,7 +44,6 @@ load_dotenv()
 
 # Hole den API-Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-#OPENAI_API_KEY="""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"""
 
 client: Optional[OpenAI] = None
 if OPENAI_AVAILABLE and OPENAI_API_KEY:

@@ -382,9 +382,9 @@ def display_hsg_api_page(user_id):
                                 selected_courses.append(course_id)
                     
                     # Button außerhalb des scrollbaren Bereichs platzieren
-                    if submit_button_placeholder.form_submit_button("Save Course Selection"):
+                    if submit_button_placeholder.form_submit_button("Kursauswahl speichern"):
                         if save_user_course_selections(user_id, selected_courses):
-                            st.success("Your course selection has been saved!")
+                            st.success("Ihre Kursauswahl wurde gespeichert!!")
                             st.rerun()
             
             with tab2:

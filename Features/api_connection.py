@@ -289,7 +289,7 @@ def display_hsg_api_page(user_id):
     user_id = st.session_state.get('user_id')
     username = st.session_state.get('username')
     
-    st.write(f"Grützi {username}! Hier können Sie Ihre Kurse an der Universität St. Gallen verwalten.")
+    st.write(f"Grüezi {username}! Hier können Sie Ihre Kurse an der Universität St. Gallen verwalten.")
     
     session = SessionLocal()
     try:

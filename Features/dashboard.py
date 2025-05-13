@@ -254,7 +254,7 @@ def main(cookies):
     # Create sidebar
     with st.sidebar:
         st.title("StudyBuddy")
-        st.write(f"Willkommen, {username}!")
+        st.write(f"Willkommen, {username.capitalize()}!")
                 
         # Navigation options
         pages = {

@@ -1,9 +1,8 @@
 import streamlit as st
 import datetime
 import calendar
-from datetime import datetime
-
-#Imports unserer Module
+from datetime import datetime, timedelta
+import random
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
 from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 

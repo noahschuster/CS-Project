@@ -31,7 +31,6 @@ from database_manager import (
     save_study_task,
     get_study_tasks,
     update_study_task_status,
-    update_study_task,
     delete_study_task
 )
 from api_connection import get_user_courses # Fetches course_id, title, code, link_course_info

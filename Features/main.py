@@ -14,7 +14,7 @@ if not os.path.exists(db_path):
     
     try:
         # Run db.py to create the database
-        subprocess.run([sys.executable, 'db.py'], check=True)
+        subprocess.run([sys.executable, 'Features/db.py'], check=True)
         print(f"Database file {db_path} created successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error creating database: {e}")

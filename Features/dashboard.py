@@ -26,28 +26,28 @@ SESSION_COOKIE_NAME = "studybuddy_session_token"
 # Cache functions for performance - updating to use st.cache_data instead of lru_cache
 @st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_learning_type(user_id):
-    """Cached version of get_user_learning_type to reduce DB calls"""
+    """Gepufferte Version von get_user_learning_type, um DB-Aufrufe zu reduzieren"""
     return get_user_learning_type(user_id)
 
 @st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_courses(user_id):
-    """Cached version of get_user_courses to reduce DB calls"""
+    """Gepufferte Version von get_user_courses, um DB-Aufrufe zu reduzieren"""
     return get_user_courses(user_id)
 
 @st.cache_data(ttl=300, max_entries=32)
 def get_cached_calendar_events(user_id):
-    """Cached version of get_calendar_events to reduce DB calls"""
+    """Gepufferte Version von get_calendar_events, um DB-Aufrufe zu reduzieren"""
     return get_calendar_events(user_id)
 
 def check_login():
-    """Verifies user login status"""
+    """Überprüft den Status der Benutzeranmeldung"""
     if not st.session_state.get("logged_in", False):
-        st.warning("Please log in to access the dashboard.")
+        st.warning("Bitte melden Sie sich an, um auf das Dashboard zuzugreifen.")
         st.stop()
     return st.session_state.get("user_id"), st.session_state.get("username")
 
 def logout_user(cookies):
-    """Handles user logout process"""
+    """Erledigt die Benutzerabmeldung"""
     # Get session token from cookie
     session_token = cookies.get(SESSION_COOKIE_NAME)
     
@@ -94,7 +94,7 @@ def logout_user(cookies):
     st.stop()
 
 def display_upcoming_deadlines(user_id):
-    """Display upcoming deadlines with efficient data handling"""
+    """Anzeige anstehender Fristen mit effizienter Datenverarbeitung"""
     # Get today's date
     today = datetime.now().date()
     
@@ -102,7 +102,7 @@ def display_upcoming_deadlines(user_id):
     events = get_cached_calendar_events(user_id)
     
     # Define deadline types
-    deadline_types = ["Assignment Due", "Exam", "Project Due"]
+    deadline_types = ["Aufgabe fällig", "Prüfung", "Projekt fällig"]
     
     # Filter and sort deadlines in one pass
     upcoming_deadlines = []
@@ -134,27 +134,27 @@ def display_upcoming_deadlines(user_id):
             
             # Format days left text
             if days_left == 0:
-                days_text = "⚠️ TODAY"
+                days_text = "⚠️ HEUTE"
             elif days_left == 1:
-                days_text = "⚠️ TOMORROW"
+                days_text = "⚠️ MORGEN"
             else:
-                days_text = f"In {days_left} days"
+                days_text = f"In {days_left} Tagen"
             
             st.markdown(
                 f"""<div style='background-color: {deadline['color']}; padding: 8px;
                  border-radius: 5px; margin-bottom: 5px;'>
                 <strong>{deadline['title']}</strong> ({deadline['type']})<br>
-                Due: {deadline['date']} at {deadline['time']} - <strong>{days_text}</strong>
+                Fällig: {deadline['date']} um {deadline['time']} - <strong>{days_text}</strong>
                 </div>""",
                 unsafe_allow_html=True
             )
     else:
-        st.info("No upcoming deadlines in the next 14 days! 🎉")
+        st.info("Keine Termine in den nächsten 14 Tagen! 🎉")
 
 def display_dashboard(user_id, username):
-    """Main dashboard display with optimized data fetching"""
+    """Hauptanzeige des Dashboards mit optimiertem Datenabruf"""
     st.title("StudyBuddy Dashboard")
-    st.subheader("Your Learning Journey")
+    st.subheader("Deine Learning Journey")
 
     # Zeige Prokrastinations-Warnung an (wenn Risiko hoch ist)
     #display_dashboard_warning(user_id)
@@ -171,7 +171,7 @@ def display_dashboard(user_id, username):
             user_courses = get_cached_user_courses(user_id)
             course_count = len(user_courses) if user_courses else 0
         except Exception as e:
-            st.error(f"Error fetching courses: {str(e)}")
+            st.error(f"Fehler beim Abrufen von Kursen: {str(e)}")
             course_count = "Error"
         
         # Fetch session data once
@@ -185,15 +185,15 @@ def display_dashboard(user_id, username):
             else:
                 total_hours = 0
         except Exception as e:
-            st.error(f"Error fetching sessions: {str(e)}")
+            st.error(f"Fehler beim Abrufen von Sitzungen: {str(e)}")
             session_count = "Error"
             total_hours = "Error"
             sessions_df = pd.DataFrame()  # Empty dataframe for safe access later
         
         # Display metrics
-        st.metric("Courses Enrolled", course_count)
-        st.metric("Study Sessions", session_count)
-        st.metric("Total Study Hours", f"{total_hours:.1f}" if isinstance(total_hours, (int, float)) else total_hours)
+        st.metric("Eingeschriebene Kurse", course_count)
+        st.metric("Lern-Sessions", session_count)
+        st.metric("Studienstunden insgesamt", f"{total_hours:.1f}" if isinstance(total_hours, (int, float)) else total_hours)
 
         # Diagramm 1: Lernzeiten nach Thema
         st.write("### Lernzeiten nach Thema")
@@ -201,7 +201,7 @@ def display_dashboard(user_id, username):
         create_pie_chart_learning_time_by_subject(user_id)
     
     with col2:
-        st.subheader("Recent Activity")
+        st.subheader("Letzte Aktivitäten")
         
         # Process session data efficiently
         if isinstance(session_count, int) and session_count > 0 and not sessions_df.empty:
@@ -212,20 +212,20 @@ def display_dashboard(user_id, username):
                 login_time = session.get("login_time", "N/A")
                 login_time_str = login_time.strftime("%Y-%m-%d %H:%M") if isinstance(login_time, datetime) else str(login_time)
                 duration = session.get("duration_hours", 0)
-                st.write(f"📚 Study session on {login_time_str} - Duration: {duration:.1f} hours")
+                st.write(f"📚 Study session am {login_time_str} - Dauer: {duration:.1f} Stunden")
         elif session_count == 0:
-            st.write("No recent activity recorded.")
+            st.write("In letzter Zeit wurden keine Aktivitäten verzeichnet.")
         
-        st.subheader("Upcoming Deadlines")
+        st.subheader("Kommende Fristen")
         display_upcoming_deadlines(user_id)
 
         # Display learning profile
-        st.subheader("Your Learning Profile")
+        st.subheader("Dein Lernprofil")
         if learning_type:
-            st.info(f"Your identified learning type: {learning_type}")
-            st.write("Based on your learning type, we've customized your experience.")
+            st.info(f"Ihr identifizierter Lerntyp: {learning_type}")
+            st.write("Auf der Grundlage Ihres Lerntyps haben wir Ihr Erlebnis individuell gestaltet.")
         else:
-            st.warning("You haven't set your learning type yet. Go to the Learning Type section to take the quiz.")
+            st.warning("Sie haben Ihren Lerntyp noch nicht festgelegt. Gehen Sie zum Abschnitt Lerntyp, um das Quiz zu absolvieren.")
             
 
          # Diagramm 2: Zeitnutzung der nächsten Woche
@@ -237,7 +237,7 @@ def display_dashboard(user_id, username):
 
 # In der main() Funktion, ergänze die pages-Dictionary
 def main(cookies):
-    """Entry point for dashboard"""
+    """Einstiegspunkt für das Dashboard"""
     # Only check cookie readiness once
     if not cookies.ready():
         st.stop()
@@ -254,15 +254,15 @@ def main(cookies):
     # Create sidebar
     with st.sidebar:
         st.title("StudyBuddy")
-        st.write(f"Welcome, {username}!")
+        st.write(f"Willkommen, {username}!")
                 
         # Navigation options
         pages = {
             "Dashboard": display_dashboard,
-            "Calendar": "calendar_study.display_calendar",
-            "Courses": "api_connection.display_hsg_api_page",
-            "Learning Tips": "learning_tipps.display_learning_tips",
-            "Learning Suggestions": "learning_suggestions.display_learning_suggestions",
+            "Kalender": "calendar_study.display_calendar",
+            "Kurse": "api_connection.display_hsg_api_page",
+            "Lern-Tips": "learning_tipps.display_learning_tips",
+            "Lern-Empfehlungen": "learning_suggestions.display_learning_suggestions",
             "Prokrastinations-Risiko": "procrastination_risk.run_procrastination_questionnaire" # MODIFIED HERE
         }
                 

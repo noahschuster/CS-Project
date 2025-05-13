@@ -4,7 +4,7 @@ import os
 import json
 from datetime import datetime, timedelta
 import locale
-locale.setlocale(locale.LC_TIME, "de_DE")
+#locale.setlocale(locale.LC_TIME, "de_DE")
 import pytz
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow

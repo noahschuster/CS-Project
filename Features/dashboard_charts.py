@@ -4,22 +4,24 @@ from learning_suggestions import get_study_tasks
 from database_manager import get_calendar_events
 import streamlit as st
 
-# Modern Material/Tailwind Inspired Colors
-PREMIUM_COLORS = [
-    "#0EA5E9",  # Sky Blue
-    "#10B981",  # Emerald
-    "#F59E0B",  # Amber
-    "#F43F5E",  # Rose
-    "#64748B",  # Slate
-    "#78716C",  # Stone
+# Moderne Farben auswählen für die Charts auf dem Dashboard
+MY_COLORS = [
+    "#0EA5E9",  
+    "#10B981",  
+    "#F59E0B",  
+    "#F43F5E",  
+    "#64748B",
+    "#78716C",
 ]
 
+# autotexts definieren
 def style_autotexts(autotexts):
     for autotext in autotexts:
-        autotext.set_fontsize(20)  # Large readable labels
+        autotext.set_fontsize(20)  # Grosse Schriftgrösse bei den Beschriftungen 
         autotext.set_color('white')
         autotext.set_weight('bold')
 
+# kuchendiagramm definieren via funktion für Zeit je nach Fach gelernt
 def create_pie_chart_learning_time_by_subject(user_id):
     study_tasks = get_study_tasks(user_id)
 
@@ -39,7 +41,7 @@ def create_pie_chart_learning_time_by_subject(user_id):
         autopct='%1.1f%%',
         startangle=140,
         wedgeprops={'width': 0.85},
-        colors=PREMIUM_COLORS[:len(sizes)]
+        colors=MY_COLORS[:len(sizes)]
     )
 
     style_autotexts(autotexts)
@@ -49,22 +51,22 @@ def create_pie_chart_learning_time_by_subject(user_id):
         labels,
         title="Themen",
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.40),  # Push legend lower
-        fontsize=24,                  # Large legend text
-        title_fontsize=26,            # Large title
-        ncol=1,                       # Stack items vertically
+        bbox_to_anchor=(0.5, -0.40),  # Legende tiefere Position
+        fontsize=24,                  # Grosser Legendentext
+        title_fontsize=26,            # Grosser Titel
+        ncol=1,                       # Items vertikal anordnen
         frameon=False
     )
 
     plt.tight_layout()
     st.pyplot(fig)
 
-
+# kuchendiagramm definieren via funktion für Zeit nächste Woche
 def create_pie_chart_next_week_usage(user_id):
     events = get_calendar_events(user_id)
     next_week = datetime.now() + timedelta(days=7)
 
-    total_hours = 40
+    total_hours = 40 # Annahme 40 Stunden pro Woche verfügbar
     used_hours = 0
     for event in events:
         event_date = datetime.strptime(event['date'], "%Y-%m-%d")
@@ -82,7 +84,7 @@ def create_pie_chart_next_week_usage(user_id):
         autopct='%1.1f%%',
         startangle=140,
         wedgeprops={'width': 0.85},
-        colors=[PREMIUM_COLORS[0], PREMIUM_COLORS[2]]
+        colors=[MY_COLORS[0], MY_COLORS[2]]
     )
 
     style_autotexts(autotexts)
@@ -92,10 +94,10 @@ def create_pie_chart_next_week_usage(user_id):
         labels,
         title="Zeitnutzung",
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.40),  # Push legend lower
-        fontsize=24,                  # Large legend text
-        title_fontsize=26,            # Large title
-        ncol=1,                       # Stack items vertically
+        bbox_to_anchor=(0.5, -0.40),  # Legende weiter nach unten
+        fontsize=24,                  # Grosser Legendentext
+        title_fontsize=26,            # Grosser Titel
+        ncol=1,                       # Items vertikal anordnen
         frameon=False
     )
 

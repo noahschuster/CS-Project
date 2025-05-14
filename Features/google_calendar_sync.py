@@ -1,19 +1,18 @@
-# google_calendar_sync.py
 import streamlit as st
 import os
-import json
 from datetime import datetime, timedelta
-import locale
-#locale.setlocale(locale.LC_TIME, "de_DE")
 import pytz
+from dotenv import load_dotenv
+
+# Importiere die benötigten Bibliotheken für Google Calendar API
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event, update_calendar_event
-from dotenv import load_dotenv
-from pathlib import Path
+
+# Importiere unsere Module aus dem Datenbankmanager
+from database_manager import get_calendar_events, save_calendar_event, update_calendar_event
 
 # Lade Umgebungsvariablen
 load_dotenv()
@@ -37,12 +36,12 @@ EVENT_TYPE_COLOR_MAP = {
 
 # Google Calendar Farben zu StudyBuddy Farben
 GOOGLE_TO_STUDYBUDDY_COLORS = {
-    "7": "#ccffcc",  # Hellgrün - Study Session
-    "2": "#ccccff",  # Blau - Lecture
-    "11": "#ffaaaa", # Rot - Exam
-    "5": "#ffffcc",  # Gelb - Assignment Due
-    "9": "#ccccff",  # Lila - Group Meeting
-    "8": "#f0f0f0"   # Grau - Other
+    "7": "#ccffcc",  # Hellgrün - Lern-Session
+    "2": "#ccccff",  # Blau - Vorlesung
+    "11": "#ffaaaa", # Rot - Prüfung
+    "5": "#ffffcc",  # Gelb - Abgabe fällig
+    "9": "#ccccff",  # Lila - Gruppen-Meeting
+    "8": "#f0f0f0"   # Grau - Andere
 }
 
 # Google Calendar Farben zu StudyBuddy Event-Typen
@@ -55,64 +54,47 @@ GOOGLE_COLOR_TO_EVENT_TYPE = {
     "8": "Andere"
 }
 
+# Speichert die Google Credentials im Streamlit Session State.
 def save_credentials_to_session(creds):
-    """
-    Speichert die Google Credentials im Streamlit Session State.
-    """
-    try:
-        # Speichere Credentials im Session State
-        st.session_state.google_credentials = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": creds.scopes,
-            "expiry": creds.expiry.isoformat() if creds.expiry else None
-        }
-        return True
-    except Exception as e:
-        st.error(f"Fehler beim Speichern der Credentials: {str(e)}")
-        return False
+    # Speichere Credentials im Session State
+    st.session_state.google_credentials = {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": creds.scopes,
+        "expiry": creds.expiry.isoformat() if creds.expiry else None
+    }
+    return True
 
+#Entfernt die Google Credentials aus dem Session State.
 def reset_credentials():
-    """
-    Entfernt die Google Credentials aus dem Session State.
-    """
     if 'google_credentials' in st.session_state:
         del st.session_state.google_credentials
     return True
-
+#  Authentifiziert mit Google Calendar API und gibt Credentials zurück.
+# Verwendet Credentials aus dem Streamlit Session State.
 def get_google_credentials():
-    """
-    Authentifiziert mit Google Calendar API und gibt Credentials zurück.
-    Verwendet Credentials aus dem Session State.
-    """
     creds = None
     
     # Versuche, Credentials aus dem Session State zu laden
     if 'google_credentials' in st.session_state:
         creds_data = st.session_state.google_credentials
-        try:
-            # Erstelle Credentials-Objekt aus den gespeicherten Daten
-            creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
-            
-            # Prüfe, ob die Credentials gültig sind
-            if creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                    # Aktualisiere die Credentials im Session State
-                    save_credentials_to_session(creds)
-                except Exception as e:
-                    st.error(f"Fehler beim Aktualisieren des Tokens: {str(e)}")
-                    creds = None
-        except Exception as e:
-            st.error(f"Fehler beim Laden der Credentials aus dem Session State: {str(e)}")
-            creds = None
+    
+        # Erstelle Credentials-Objekt aus den gespeicherten Daten
+        creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
+        
+        # Prüfe, ob die Credentials gültig sind
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            # Aktualisiere die Credentials im Session State
+            save_credentials_to_session(creds)
     
     # Wenn keine gültigen Credentials verfügbar sind, Benutzer anmelden lassen
     if not creds or not creds.valid:
         # Verwende Umgebungsvariablen für Client ID und Secret
+        # Debugging: Prüfe ob Umgebungsvariablen gesetzt sind
         if not CLIENT_ID or not CLIENT_SECRET:
             st.error("Client ID oder Client Secret nicht in Umgebungsvariablen gefunden")
             return None
@@ -124,7 +106,7 @@ def get_google_credentials():
                 "client_secret": CLIENT_SECRET,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": ["http://localhost:8502"]  # Anderer Port als Streamlit
+                "redirect_uris": ["http://localhost:8502"]  # Anderer Port als Streamlit um Konflikete zu vermeiden
             }
         }
         
@@ -139,46 +121,32 @@ def get_google_credentials():
             # Speichere die neuen Credentials im Session State
             save_credentials_to_session(creds)
         except Exception as e:
+            # Wenn ein Fehler auftritt, zeige eine Fehlermeldung an
             st.error(f"Fehler bei der Authentifizierung: {str(e)}")
             return None
-    
     return creds
 
+# Google Kalender Service erstellen
 def get_google_calendar_service():
-    """
-    Erstellt einen Google Calendar API Service.
-    """
     creds = get_google_credentials()
-    if not creds:
-        return None
-    
-    try:
-        service = build('calendar', 'v3', credentials=creds)
-        return service
-    except Exception as e:
-        st.error(f"Fehler beim Erstellen des Google Calendar Service: {str(e)}")
-        return None
+    service = build('calendar', 'v3', credentials=creds)
+    return service
 
+# Ruft alle verfügbaren Google Kalender des Benutzers ab
 def get_google_calendars():
-    """
-    Ruft alle verfügbaren Google Kalender des Benutzers ab.
-    """
     service = get_google_calendar_service()
-    if not service:
-        return []
-    
     try:
+        # Liste der Kalender abrufen
         calendar_list = service.calendarList().list().execute()
         calendars = calendar_list.get('items', [])
         return calendars
     except HttpError as error:
+        # Fehler beim Abrufen der Kalender (zb Verbindung abgebrochen)
         st.error(f"Fehler beim Abrufen der Google Kalender: {error}")
         return []
 
+# Erstellt ein neues Ereignis im Google Kalender
 def create_google_event(service, calendar_id, event_data):
-    """
-    Erstellt ein neues Ereignis im Google Kalender.
-    """
     # Datum und Uhrzeit formatieren
     date_str = event_data['date']
     time_str = event_data['time']
@@ -194,7 +162,7 @@ def create_google_event(service, calendar_id, event_data):
     event_type = event_data.get('type', 'Other')
     color_id = EVENT_TYPE_COLOR_MAP.get(event_type, "8")
     
-    # Google Calendar Event erstellen
+    # Google Calendar Event erstellen im Format wie es die API erwartet
     event = {
         'summary': event_data['title'],
         'description': f"StudyBuddy Event - Typ: {event_type}",
@@ -213,7 +181,7 @@ def create_google_event(service, calendar_id, event_data):
                 {'method': 'popup', 'minutes': 30},
             ],
         },
-        # Metadaten hinzufügen, um StudyBuddy-Events zu identifizieren
+        # Metadaten hinzufügen, um StudyBuddy-Events zu identifizieren, wichtig bei der Synchronisation
         'extendedProperties': {
             'private': {
                 'studybuddy_id': str(event_data.get('id', '')),
@@ -223,16 +191,16 @@ def create_google_event(service, calendar_id, event_data):
     }
     
     try:
+        # Event in den Google Kalender einfügen
         event = service.events().insert(calendarId=calendar_id, body=event).execute()
         return event['id']
     except HttpError as error:
+        # Fehler beim Erstellen des Events (zb Verbindung abgebrochen)
         st.error(f"Fehler beim Erstellen des Google Calendar Events: {error}")
         return None
 
+# Aktualisiert ein bestehendes Ereignis im Google Kalender.
 def update_google_event(service, calendar_id, google_event_id, event_data):
-    """
-    Aktualisiert ein bestehendes Ereignis im Google Kalender.
-    """
     try:
         # Zuerst das bestehende Event abrufen
         event = service.events().get(calendarId=calendar_id, eventId=google_event_id).execute()
@@ -252,7 +220,7 @@ def update_google_event(service, calendar_id, google_event_id, event_data):
         event_type = event_data.get('type', 'Other')
         color_id = EVENT_TYPE_COLOR_MAP.get(event_type, "8")
         
-        # Event aktualisieren
+        # Event aktualisieren, im Format wie es die API erwartet
         event['summary'] = event_data['title']
         event['description'] = f"StudyBuddy Event - Typ: {event_type}"
         event['start'] = {
@@ -283,27 +251,23 @@ def update_google_event(service, calendar_id, google_event_id, event_data):
         
         return updated_event['id']
     except HttpError as error:
+        # Fehler beim Aktualisieren des Events (zb Verbindung abgebrochen)
         st.error(f"Fehler beim Aktualisieren des Google Calendar Events: {error}")
         return None
 
+# Löscht ein Ereignis aus dem Google Kalender
 def delete_google_event(service, calendar_id, google_event_id):
-    """
-    Löscht ein Ereignis aus dem Google Kalender.
-    """
     try:
         service.events().delete(calendarId=calendar_id, eventId=google_event_id).execute()
         return True
     except HttpError as error:
+        # Fehler beim Löschen des Events (zb Verbindung abgebrochen)
         st.error(f"Fehler beim Löschen des Google Calendar Events: {error}")
         return False
 
+# Synchronisiert StudyBuddy-Events zu Google Calendar.
 def sync_to_google(user_id, calendar_id):
-    """
-    Synchronisiert StudyBuddy-Events zu Google Calendar.
-    """
     service = get_google_calendar_service()
-    if not service:
-        return False, "Keine Verbindung zu Google Calendar möglich."
     
     # Alle StudyBuddy-Events abrufen
     studybuddy_events = get_calendar_events(user_id)
@@ -362,12 +326,11 @@ def sync_to_google(user_id, calendar_id):
         return True, message
     
     except HttpError as error:
+        # Fehler beim Synchronisieren (zb Verbindung abgebrochen)
         return False, f"Fehler bei der Synchronisation: {error}"
 
+# Importiert Google Calendar-Events zu StudyBuddy
 def sync_from_google(user_id, calendar_id):
-    """
-    Synchronisiert Google Calendar-Events zu StudyBuddy.
-    """
     service = get_google_calendar_service()
     if not service:
         return False, "Keine Verbindung zu Google Calendar möglich."
@@ -462,16 +425,23 @@ def sync_from_google(user_id, calendar_id):
                         ).execute()
         
         message = f"Import abgeschlossen: {created} erstellt, {updated} aktualisiert, {skipped} übersprungen."
+        # Damit der Kalender aktualisiert wird, wird die Seite neu geladen
         st.rerun()
         return True, message
     
     except HttpError as error:
+        # Fehler beim Importieren (zb Verbindung abgebrochen)
         return False, f"Fehler beim Import: {error}"
 
+# Prüft, ob automatische Synchronisation aktiviert ist und führt sie bei Bedarf aus
+def check_auto_sync(user_id):
+    if st.session_state.get('auto_sync', False) and st.session_state.get('selected_calendar_id'):
+        # Führe die Synchronisation in beide Richtungen durch
+        sync_to_google(user_id, st.session_state.selected_calendar_id)
+        sync_from_google(user_id, st.session_state.selected_calendar_id)
+        
+# Frontend für Google Calendar Synchronisation
 def display_google_calendar_sync(user_id):
-    """
-    Zeigt die Google Calendar Synchronisations-Oberfläche an.
-    """
     st.subheader("Google Calendar Synchronisation")
     
     # Prüfen, ob Client ID und Secret vorhanden sind
@@ -541,6 +511,7 @@ def display_google_calendar_sync(user_id):
     col1, col2 = st.columns(2)
     
     with col1:
+        # sync von StudyBuddy zu Google
         if st.button("StudyBuddy → Google", use_container_width=True):
             with st.spinner("Synchronisiere Events zu Google Calendar..."):
                 success, message = sync_to_google(user_id, calendar_id)
@@ -550,6 +521,7 @@ def display_google_calendar_sync(user_id):
                     st.error(message)
     
     with col2:
+        # Import von Google zu StudyBuddy
         if st.button("Google → StudyBuddy", use_container_width=True):
             with st.spinner("Importiere Events von Google Calendar..."):
                 success, message = sync_from_google(user_id, calendar_id)
@@ -561,15 +533,10 @@ def display_google_calendar_sync(user_id):
     # Verbindung zurücksetzen
     st.write("### Verbindungseinstellungen")
     if st.button("Verbindung zu Google Calendar zurücksetzen"):
+        # Aufruf der Funktion zum Zurücksetzen der Verbindung
         reset_credentials()
         st.success("Verbindung zurückgesetzt. Bitte verbinde dich erneut.")
+        # Wenn die Verbindung zurückgesetzt wird, wird die Seite neu geladen um Fehler zu vermeiden
         st.rerun()
 
-def check_auto_sync(user_id):
-    """
-    Prüft, ob automatische Synchronisation aktiviert ist und führt sie bei Bedarf aus.
-    """
-    if st.session_state.get('auto_sync', False) and st.session_state.get('selected_calendar_id'):
-        # Führe die Synchronisation in beide Richtungen durch
-        sync_to_google(user_id, st.session_state.selected_calendar_id)
-        sync_from_google(user_id, st.session_state.selected_calendar_id)
+

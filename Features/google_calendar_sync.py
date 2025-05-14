@@ -468,52 +468,6 @@ def sync_from_google(user_id, calendar_id):
     except HttpError as error:
         return False, f"Fehler beim Import: {error}"
 
-def delete_event_both(user_id, event_id, calendar_id):
-    """
-    Löscht ein Event sowohl aus StudyBuddy als auch aus Google Calendar.
-    """
-    # Zuerst aus StudyBuddy löschen
-    if not delete_calendar_event(event_id):
-        return False, "Fehler beim Löschen des Events aus StudyBuddy."
-    
-    # Dann aus Google Calendar löschen
-    service = get_google_calendar_service()
-    if not service:
-        return True, "Event aus StudyBuddy gelöscht, aber keine Verbindung zu Google Calendar möglich."
-    
-    # Alle Google Calendar Events abrufen
-    try:
-        # Zeitraum für Abfrage (z.B. 1 Jahr zurück und 1 Jahr voraus)
-        now = datetime.utcnow()
-        time_min = (now - timedelta(days=365)).isoformat() + 'Z'
-        time_max = (now + timedelta(days=365)).isoformat() + 'Z'
-        
-        events_result = service.events().list(
-            calendarId=calendar_id,
-            timeMin=time_min,
-            timeMax=time_max,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-        
-        google_events = events_result.get('items', [])
-        
-        # Suche nach dem Event mit der entsprechenden StudyBuddy-ID
-        for google_event in google_events:
-            if 'extendedProperties' in google_event and 'private' in google_event['extendedProperties']:
-                studybuddy_id = google_event['extendedProperties']['private'].get('studybuddy_id')
-                if studybuddy_id == str(event_id):
-                    # Event in Google Calendar löschen
-                    if delete_google_event(service, calendar_id, google_event['id']):
-                        return True, "Event erfolgreich aus StudyBuddy und Google Calendar gelöscht."
-                    else:
-                        return True, "Event aus StudyBuddy gelöscht, aber Fehler beim Löschen aus Google Calendar."
-        
-        return True, "Event aus StudyBuddy gelöscht, aber nicht in Google Calendar gefunden."
-    
-    except HttpError as error:
-        return True, f"Event aus StudyBuddy gelöscht, aber Fehler beim Zugriff auf Google Calendar: {error}"
-
 def display_google_calendar_sync(user_id):
     """
     Zeigt die Google Calendar Synchronisations-Oberfläche an.

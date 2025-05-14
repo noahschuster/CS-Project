@@ -32,13 +32,6 @@ def get_user_learning_type(user_id):
         user = session.query(User).filter(User.id == user_id).first()
         return user.learning_type if user else None
 
-@st.cache_data(ttl=300)
-def get_learning_type_completed(user_id):
-    """Überprüft, ob der Benutzer seine Lerntypbewertung abgeschlossen hat."""
-    with get_db_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
-        return bool(user.learning_type_completed) if user else False
-
 def set_learning_type(user_id, learning_type):
     """Legt den Lerntyp des Benutzers fest und markiert ihn als abgeschlossen."""
     with get_db_session() as session:

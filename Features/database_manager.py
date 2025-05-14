@@ -273,19 +273,6 @@ def get_learning_type_status(user_id: int) -> Tuple[Optional[str], bool]:
             return user.learning_type, bool(user.learning_type_completed)
         return None, False
 
-def update_learning_type(user_id: int, learning_type: str) -> bool:
-    """Aktualisiert den Lerntyp des Benutzers und markiert ihn als abgeschlossen."""
-    with get_db_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
-        if not user:
-            print(f"Benutzer für ID nicht gefunden: {user_id}")
-            return False
-        
-        user.learning_type = learning_type
-        user.learning_type_completed = 1
-        print(f"Lerntyp für Benutzer-ID aktualisiert: {user_id}")
-        return True
-
 # --- Session Management ---
 def log_session(user_id: int) -> Optional[int]:
     """Protokolliert eine neue Benutzersitzung."""

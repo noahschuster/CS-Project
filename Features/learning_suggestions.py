@@ -977,23 +977,6 @@ if __name__ == "__main__":
         st.session_state.learning_type_status_completed = True
         st.session_state.learning_type_status_type = "Visual"
 
-    # Override database/API calls with mocks for standalone testing if desired
-    # This part is complex to maintain here. For robust testing, use a proper test framework.
-    # For simplicity, we'll assume the actual DB functions are available or will fail gracefully.
-    
-    # Example: Mock get_learning_type_status if it's not fully set up
-    _original_get_learning_type_status = get_learning_type_status
-    def _mock_get_learning_type_status(uid):
-        completed = st.session_state.get('learning_type_status_completed', False)
-        ltype = st.session_state.get('learning_type_status_type', None)
-        if not completed:
-            # Simulate going through learning type questionnaire
-            # from learning_type import display_learning_type # This would be complex here
-            # For now, just return a default if not completed
-            return "Visual", True # Mock as completed for testing flow
-        return ltype, completed
-    # get_learning_type_status = _mock_get_learning_type_status
 
     display_learning_suggestions(mock_user_id)
 
-    # get_learning_type_status = _original_get_learning_type_status # Restore if needed

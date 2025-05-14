@@ -15,6 +15,9 @@ from dashboard_charts import (
 # Konstanten
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
+if hasattr(st, "cache"):
+    st.cache = st.cache_data
+
 # Cache Funktionen um die Datenbankabfragen zu optimieren (Empfehlung von Stackoverflow um Ladezeiten zu reduzieren)
 @st.cache_data(ttl=600, max_entries=32)
 def get_cached_user_learning_type(user_id):

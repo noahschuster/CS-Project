@@ -15,13 +15,16 @@ def set_learning_type(user_id, learning_type):
         return False
 
 # Ruft den Lerntyp des Benutzers aus der Datenbank ab
-@st.cache_data(ttl=300)
 def get_user_learning_type(user_id):
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         return user.learning_type if user else None
-    
-# VARK scoring chart - defined once outside function for efficiency
+
+# Wir haben hier das VARK Framework implementiert, um den Lerntyp zu bestimmen.
+# Quelle:
+# https://www.uab.edu/students/academics/images/academic-success-center/vark-questionnaire.pdf#:~:text=The%20VARK%20Questionnaire%20%28Version%207,You%20would   
+
+# VARK Scoring Tabelle
 VARK_CHART = {
     1: {"a": "K", "b": "A", "c": "R", "d": "V"},
     2: {"a": "V", "b": "A", "c": "R", "d": "K"},
@@ -41,7 +44,7 @@ VARK_CHART = {
     16: {"a": "V", "b": "A", "c": "R", "d": "K"}
 }
 
-# Dictionary of questions and options for easier maintenance
+# Dictionary für die Fragen und Antwortoptionen des VARK Fragebogens. Übernommen aus Quelle.
 QUESTIONS = {
     1: {
         "text": "Du hilfst jemandem, der zum Flughafen, ins Stadtzentrum oder zum Bahnhof möchte. Du würdest:",
@@ -189,16 +192,17 @@ QUESTIONS = {
     }
 }
 
+# Berechnet den Lerntyp basierend auf den Antworten und dem VARK Framework
 def calculate_learning_type(all_answers):
-    """Calculate VARK scores from submitted answers."""
     scores = {"V": 0, "A": 0, "R": 0, "K": 0}
     
+    # Berechnung des Scores
     for question_num, answers in all_answers.items():
         for answer in answers:
             if answer in VARK_CHART[question_num]:
                 scores[VARK_CHART[question_num][answer]] += 1
     
-    # Map scores to full names
+    # Maping der Scores zu den Lerntypen
     score_mapping = {
         "V": ("Visuell", scores["V"]),
         "A": ("Auditiv", scores["A"]),
@@ -206,11 +210,11 @@ def calculate_learning_type(all_answers):
         "K": ("Kinästhetisch", scores["K"])
     }
     
-    # Find dominant style(s)
+    # Dominante Lerntypen bestimmen
     max_score = max(scores.values())
     dominant_styles = [name for key, (name, score) in score_mapping.items() if score == max_score]
     
-    # Format result string
+    # Resultierneden String formatieren
     if len(dominant_styles) == 1:
         learning_type = dominant_styles[0]
     else:
@@ -221,20 +225,13 @@ def calculate_learning_type(all_answers):
         "learning_type": learning_type
     }
 
+# Frontend für den VARK Fragebogen
 def display_learning_type(user_id):
-    """Display the VARK learning type questionnaire and process results."""
     st.title("Entdecke deinen Lerntyp - VARK Fragebogen")
-    
-    # Check for existing learning type
-    current_type = get_user_learning_type(user_id)
-    if current_type:
-        st.success(f"Dein aktueller Lerntyp: {current_type}")
-        st.write("Möchtest du den Test noch einmal machen? Benutze das Formular unten.")
-    
     st.subheader("Der VARK Fragebogen (Version 7.8)")
     st.write("Wie lerne ich am besten?")
     
-    # Clear instructions
+    # Anleitung für den Fragebogen
     st.info("""
     Anleitung:
     - Wähle die Antwort(en), die deine Präferenz für jede Frage am besten erklären.
@@ -245,11 +242,11 @@ def display_learning_type(user_id):
     with st.form("vark_questionnaire"):
         all_answers = {}
         
-        # Generate form questions dynamically
+        # Erstelle die Fragen und Optionen
         for q_num, q_data in QUESTIONS.items():
             st.write(f"{q_num}. {q_data['text']}")
             
-            # Create selection options
+            # Eestelle Checkboxen für die Optionen
             q_selections = []
             for i, option in enumerate(q_data['options']):
                 if st.checkbox(option, key=f"q{q_num}_{i}"):
@@ -260,32 +257,35 @@ def display_learning_type(user_id):
         submitted = st.form_submit_button("Fragebogen abschicken")
         
         if submitted:
-            # Calculate results
+            # Berechne den Lerntyp mit der oben definierten Funktion
             results = calculate_learning_type(all_answers)
             scores = results["scores"]
             learning_type = results["learning_type"]
             
-            # Display results
+            # Zeige die Ergebnisse an
             st.subheader("Deine VARK Lernstil-Ergebnisse")
             
-            # Create bar chart
+            # Erstelle ein Balkendiagramm für die Ergebnisse
             st.bar_chart(scores)
             
-            # Display scores
+            # Scores anzeigen
             for style, score in scores.items():
                 st.write(f"{style}: {score}")
             
-            # Display learning type
+            # Lernstil anzeigen
             st.success(f"Dein Lernstil ist: {learning_type}")
-            
-            # Save learning type
+
+            # Lerntyp in der Datenbank speichern
             if set_learning_type(user_id, learning_type):
                 st.session_state.learning_type_completed = True
                 st.info("Basierend auf deinem Lerntyp werden wir deine Lernerfahrung anpassen.")
+                print(get_user_learning_type(user_id))
             else:
                 st.error("Es gab einen Fehler beim Speichern deines Lerntyps. Bitte versuche es erneut.")
+
     
-    # Navigation button outside the form
+    # Navigations Buttons ganz unten auf der Seite
     if st.session_state.get("learning_type_completed", False):
         if st.button("Weiter zum Dashboard"):
-            st.rerun()  # Trigger app rerun to navigate to dashboard
+            # Durch Rerun wird die Seite neu geladen und durch den aktualisierten Lerntyp wird die Dashboard-Seite angezeigt
+            st.rerun()

@@ -616,16 +616,13 @@ def _handle_new_study_plan_saving(user_id: str) -> None:
                 save_calendar_event(user_id, event_data)
                 
                 task_data = {
-                    'course_id': session['course_id'], 
-                    'course_title': session['course_title'], 
-                    'course_code': session['course_code'],
-                    'date': session['date'], 
-                    'start_time': session['start_time'], 
+                    'course_id': session['course_id'],
+                    'date': session['date'],
+                    'start_time': session['start_time'],
                     'end_time': session['end_time'],
                     'topic': session['content'].get('topic_focus', 'N/A'),
                     'methods': json.dumps(session['content'].get('suggested_activities', [])),
-                    'status': 'Pending', 
-                    'is_ai_generated': True
+                    'completed': session.get('completed', False) # Use completed status from the plan
                 }
                 save_study_task(user_id, task_data)
                 num_saved += 1

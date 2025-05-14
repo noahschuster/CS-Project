@@ -1,4 +1,11 @@
 import streamlit as st
+
+# Konfiguration der Streamlit-Seite
+st.set_page_config(
+    page_title="StudyBuddy",
+    page_icon="📚",
+    layout="centered")
+
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
 import sys
@@ -16,13 +23,6 @@ from database_manager import (
     User
 )
 import dashboard
-
-
-# Konfiguration der Streamlit-Seite
-st.set_page_config(
-    page_title="StudyBuddy",
-    page_icon="📚",
-    layout="centered")
 
 # Pfad zur Datenbankdatei
 db_path = 'local_database.db'

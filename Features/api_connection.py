@@ -11,7 +11,7 @@ API_BASE_URL = "https://integration.preprod.unisg.ch"
 LANGUAGE_MAP = {2: "German", 21: "English"}
 
 #api request an hsg server
-def api_request(endpoint, headers=None, timeout=10):
+def api_request(endpoint, headers=None, timeout=100):
     if headers is None:
         headers = {
             "X-ApplicationId": API_APPLICATION_ID,

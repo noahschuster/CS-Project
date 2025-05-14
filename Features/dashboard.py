@@ -5,7 +5,8 @@ import pandas as pd
 
 # Import unserer Module
 from api_connection import get_user_courses
-from utils import get_user_sessions, get_user_learning_type
+from learning_type import get_user_learning_type
+from database_manager import get_user_sessions
 from database_manager import delete_session_token, get_calendar_events
 from dashboard_charts import (
     create_pie_chart_learning_time_by_subject,

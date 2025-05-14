@@ -34,31 +34,42 @@ def create_pie_chart_learning_time_by_subject(user_id):
     labels = list(subject_times.keys())
     sizes = list(subject_times.values())
 
-    fig, ax = plt.subplots(figsize=(9, 9))
+    # Create figure with larger square aspect ratio
+    fig, ax = plt.subplots(figsize=(14, 14))
+    
+    # Center the pie chart and make it even larger
+    ax.set_position([0.1, 0.2, 0.8, 0.8])
+    
     wedges, texts, autotexts = ax.pie(
         sizes,
         labels=None,
         autopct='%1.1f%%',
         startangle=140,
-        wedgeprops={'width': 0.85},
-        colors=MY_COLORS[:len(sizes)]
+        wedgeprops={'width': 0.7},
+        colors=MY_COLORS[:len(sizes)],
+        textprops={'fontsize': 24, 'color': 'white', 'weight': 'bold'}  # Increased font size
     )
 
-    style_autotexts(autotexts)
+    # Style the percentage text
+    for autotext in autotexts:
+        autotext.set_fontsize(24)
+        autotext.set_color('white')
+        autotext.set_weight('bold')
 
+    # Place legend below the pie chart with more space
     ax.legend(
         wedges,
         labels,
         title="Themen",
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.40),  # Legende tiefere Position
-        fontsize=24,                  # Grosser Legendentext
-        title_fontsize=26,            # Grosser Titel
-        ncol=1,                       # Items vertikal anordnen
+        bbox_to_anchor=(0.5, -0.35),  # Moved legend further down
+        fontsize=24,
+        title_fontsize=26,
+        ncol=1,
         frameon=False
     )
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.0)  # Added padding
     st.pyplot(fig)
 
 # kuchendiagramm definieren via funktion für Zeit nächste Woche
@@ -94,7 +105,7 @@ def create_pie_chart_next_week_usage(user_id):
         labels,
         title="Zeitnutzung",
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.40),  # Legende weiter nach unten
+        bbox_to_anchor=(0.5, -0.15),  # Legende weiter nach unten
         fontsize=24,                  # Grosser Legendentext
         title_fontsize=26,            # Grosser Titel
         ncol=1,                       # Items vertikal anordnen

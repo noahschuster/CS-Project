@@ -76,47 +76,57 @@ def logout_user(cookies):
 
 # anzeigen anstehender Fristen
 def display_upcoming_deadlines(user_id):
-    today = datetime.now().date() # heutiges Datum
-
-    events = get_calendar_events(user_id) # kalender events holen
-
-    deadline_types = ["Aufgabe fällig", "Prüfung", "Projekt fällig"] # deadline arten definieren
-
+    today = datetime.now().date()  # heutiges Datum
+    events = get_calendar_events(user_id)  # kalender events holen
+    
+    if not events:
+        st.info("Keine Kalendereinträge vorhanden.")
+        return
+    
+    # Korrekte Deadline-Typen definieren
+    deadline_types = ["Fällige Aufgabe", "Prüfung", "Projekt fällig"]
+    
     upcoming_deadlines = []
-
+    
     for event in events:
-        # überspringe non deadline events
-        if not (event.get('is_deadline') or event.get('type') in deadline_types):
-            continue
-            
-        # überspringe events ohne datum
-        if not isinstance(event.get('date'), str):
-            continue
-            
-        deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
-        days_left = (deadline_date - today).days
+        # Überprüfe, ob es sich um ein Deadline-Event handelt
+        event_type = event.get('type', '')
+        is_deadline = event.get('is_deadline', False)
+        is_deadline_type = event_type in deadline_types
         
-        # nur events der nächsten 14 tage anzeigen
-        if 0 <= days_left <= 14:
-            event['days_left'] = days_left
-            upcoming_deadlines.append(event)
-
-    # nach datum sortieren
+        if not (is_deadline or is_deadline_type):
+            continue
+        
+        # Überprüfe, ob das Event ein gültiges Datum hat
+        if 'date' not in event or not event['date']:
+            continue
+        
+        try:
+            deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
+            days_left = (deadline_date - today).days
+            
+            # Nur Events der nächsten 14 Tage anzeigen
+            if 0 <= days_left <= 14:
+                event['days_left'] = days_left
+                upcoming_deadlines.append(event)
+        except ValueError:
+            continue
+    
+    # Nach Datum sortieren
     upcoming_deadlines.sort(key=lambda e: e.get('days_left', 14))
-
-    # deadlines anzeigen
+    
+    # Deadlines anzeigen
     if upcoming_deadlines:
         for deadline in upcoming_deadlines:
             days_left = deadline['days_left']
-
-            # formatieren
+            # Formatieren
             if days_left == 0:
                 days_text = "⚠️ HEUTE"
             elif days_left == 1:
                 days_text = "⚠️ MORGEN"
             else:
                 days_text = f"In {days_left} Tagen"
-
+            
             st.markdown(
                 f"""<div style='background-color: {deadline['color']}; padding: 8px;
                  border-radius: 5px; margin-bottom: 5px;'>
@@ -126,7 +136,8 @@ def display_upcoming_deadlines(user_id):
                 unsafe_allow_html=True
             )
     else:
-        st.info("Keine Termine in den nächsten 14 Tagen! 🎉")
+        st.info("Keine Termine in den nächsten 14 Tage! 🎉")
+
 
 # Dashboard anzeigen
 def display_dashboard(user_id, username):

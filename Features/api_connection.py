@@ -4,9 +4,6 @@ import requests
 import json
 from database_manager import SessionLocal, Course, UserCourse, CourseSchedule  
 
-import os
-from datetime import datetime
-
 # HSG API Konfiguration (Schlüssel usw. sind in der .env)
 API_APPLICATION_ID = "587acf1c-24d0-4801-afda-c98f081c4678"
 API_VERSION = "1"

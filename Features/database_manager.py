@@ -276,6 +276,7 @@ def log_session(user_id: int) -> Optional[int]:
         new_session = UserSession(user_id=user_id, login_time=datetime.utcnow())
         session.add(new_session)
         session.flush()
+        # Debugging
         print(f"Für die Benutzer-ID protokollierte Sitzung: {user_id}. Session ID: {new_session.id}")
         return new_session.id
 

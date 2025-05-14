@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
-from database_manager import SessionLocal, Course, UserCourse, CourseSchedule  
+from database_manager import SessionLocal, Course, UserCourse, CourseSchedule, Term, Language
 
 # HSG API Konfiguration
 API_APPLICATION_ID = "587acf1c-24d0-4801-afda-c98f081c4678"
@@ -36,16 +36,14 @@ def fetch_course_schedule(term_id, event_id):
 
 # Sync die Kurse mit dem integrierten Kalender
 def sync_course_schedule_to_calendar(user_id):
-    from database_manager import get_calendar_events, save_calendar_event, CourseSchedule
+    from database_manager import get_calendar_events, save_calendar_event # CourseSchedule already imported
     
-    # Aktuelle Kurse des Benutzers abrufen
-    user_courses = get_user_courses(user_id)
+    user_courses = get_user_courses(user_id) 
     if not user_courses:
         return 0
     
     events_added = 0
     
-    # Bestehende Kalendereinträge abrufen, um Duplikate zu vermeiden
     existing_events = get_calendar_events(user_id)
     existing_event_titles = set()
     if existing_events:
@@ -54,43 +52,37 @@ def sync_course_schedule_to_calendar(user_id):
                 event_key = f"{event['title']}_{event['date']}_{event['time']}"
                 existing_event_titles.add(event_key)
     
-    session = SessionLocal()
+    db_session = SessionLocal()
     try:
-        for course in user_courses:
-            course_id = course['course_id']
-            course_title = course['title']
-            course_code = course['meeting_code']
+        for course_info in user_courses: 
+            course_id = course_info['course_id']
+            course_title = course_info['title']
+            course_code = course_info['meeting_code']
             
-            # Gespeicherte Kurstermine abrufen statt API-Aufruf
-            course_dates = session.query(CourseSchedule).filter(
+            course_dates = db_session.query(CourseSchedule).filter(
                 CourseSchedule.course_id == course_id
             ).all()
             
             if not course_dates:
                 continue
             
-            for date in course_dates:
-                # Ereignistitel erstellen
+            for date_entry in course_dates:
                 event_title = f"{course_code} - {course_title}"
-                
-                # Prüfen, ob der Termin bereits existiert
-                event_key = f"{event_title}_{date.start_date}_{date.start_time}"
+                event_key = f"{event_title}_{date_entry.start_date}_{date_entry.start_time}"
                 if event_key in existing_event_titles:
                     continue
                 
-                # Kalenderereignis erstellen
                 event_data = {
                     'title': event_title,
-                    'date': date.start_date,
-                    'time': date.start_time,
-                    'end_time': date.end_time,
+                    'date': date_entry.start_date,
+                    'time': date_entry.start_time,
+                    'end_time': date_entry.end_time,
                     'type': "Vorlesung",
                     'color': "#ccccff",
                     'user_id': user_id,
-                    'description': f"Raum: {date.room}"
+                    'description': f"Raum: {date_entry.room}"
                 }
                 
-                # Ereignis zum Kalender hinzufügen
                 event_id = save_calendar_event(user_id, event_data)
                 if event_id:
                     events_added += 1
@@ -100,201 +92,199 @@ def sync_course_schedule_to_calendar(user_id):
         st.error(f"Fehler beim Synchronisieren der Kurstermine: {e}")
         return 0
     finally:
-        session.close()
+        db_session.close()
 
-# alle kurse die der Nutzer ausgewählt hat laden
 def get_user_courses(user_id):
-    session = SessionLocal()
-    # Auswählen der Kurse des Benutzers
-    user_courses = session.query(
-        Course
-    ).join(
-        UserCourse, Course.course_id == UserCourse.course_id
-    ).filter(
-        UserCourse.user_id == user_id
-    ).all()
-    
-    # in Liste umwandeln
-    courses_list = []
-    for course in user_courses:
-        courses_list.append({
-            'course_id': course.course_id,
-            'meeting_code': course.meeting_code,
-            'title': course.title,
-            'description': course.description,
-            'language_id': course.language_id,
-            'term_name': course.term_name,
-            'link_course_info': course.link_course_info
-        })
-    
-    return courses_list
+    db_session = SessionLocal()
+    try:
+        user_course_objects = db_session.query(
+            Course
+        ).join(
+            UserCourse, Course.course_id == UserCourse.course_id
+        ).filter(
+            UserCourse.user_id == user_id
+        ).all()
+        
+        courses_list = []
+        for course_obj in user_course_objects:
+            term_name_value = "N/A"
+            if course_obj.term_id:
+                term_entry = db_session.query(Term).filter(Term.term_id == course_obj.term_id).first()
+                if term_entry:
+                    term_name_value = term_entry.term_name
+            
+            courses_list.append({
+                'course_id': course_obj.course_id,
+                'meeting_code': course_obj.meeting_code,
+                'title': course_obj.title,
+                'description': course_obj.description, 
+                'language_id': course_obj.language_id,
+                'term_id': course_obj.term_id, 
+                'term_name': term_name_value, 
+                'link_course_info': course_obj.link_course_info
+            })
+        
+        return courses_list
+    finally:
+        db_session.close()
 
-#Abrufen der Kurse mit den oben definierten Funktionen aus der HSG API. Bereich "Admin" in der Anwendung
 def fetch_and_store_courses():
     status = st.empty()
     status.info("Abruf von Kursdaten aus der HSG API...")
     
-    current_term = fetch_current_term()
+    current_term_api_data = fetch_current_term()
     
-    term_id = current_term['id']
-    term_name = current_term['shortName']
-    term_description = current_term['description']
+    term_id_from_api = current_term_api_data['id']
+    term_name_from_api = current_term_api_data['shortName']
+    term_description_from_api = current_term_api_data['description']
     
-    status.info(f"Abruf von Kursen für  {term_description}...")
-    courses_data = fetch_courses_for_term(term_id)
-    
-    session = SessionLocal()
+    db_session = SessionLocal()
     try:
-        courses_added = 0
-        schedules_added = 0
+        term_db_entry = db_session.query(Term).filter(Term.term_id == term_id_from_api).first()
+        if not term_db_entry:
+            new_term = Term(term_id=term_id_from_api, term_name=term_name_from_api, term_description=term_description_from_api)
+            db_session.add(new_term)
+            status.info(f"Neuer Term '{term_name_from_api}' zur Datenbank hinzugefügt.")
+        else:
+            term_db_entry.term_name = term_name_from_api
+            term_db_entry.term_description = term_description_from_api
+            status.info(f"Term '{term_name_from_api}' in der Datenbank aktualisiert.")
+
+        for lang_id_map, lang_name_map in LANGUAGE_MAP.items():
+            lang_db_entry = db_session.query(Language).filter(Language.id == lang_id_map).first()
+            if not lang_db_entry:
+                lang_code_val = "DE" if lang_name_map == "German" else "EN" if lang_name_map == "English" else lang_name_map[:2].upper()
+                new_lang_entry = Language(id=lang_id_map, language_name=lang_name_map, language_code=lang_code_val)
+                db_session.add(new_lang_entry)
+                status.info(f"Neue Sprache '{lang_name_map}' zur Datenbank hinzugefügt.")
+
+        status.info(f"Abruf von Kursen für {term_description_from_api} ({term_name_from_api})...")
+        courses_api_data = fetch_courses_for_term(term_id_from_api)
         
-        # Erstelle einen Fortschrittsbalken
+        courses_added_count = 0
+        schedules_added_count = 0
+        
         progress_bar = st.progress(0)
         
-        for i, course in enumerate(courses_data):
-            
-            # Aktualisiere den Fortschrittsbalken
-            progress = (i + 1) / len(courses_data)
+        for i, course_api_item in enumerate(courses_api_data):
+            progress = (i + 1) / len(courses_api_data)
             progress_bar.progress(progress)
             
-            # Aktualisiere den Status
-            if i % 50 == 0 or i == len(courses_data) - 1:
-                status.info(f"Verarbeite Kurs {i+1}/{len(courses_data)}: {course.get('title', '')}")
+            if i % 50 == 0 or i == len(courses_api_data) - 1:
+                status.info(f"Verarbeite Kurs {i+1}/{len(courses_api_data)}: {course_api_item.get('title', '')}")
             
-            course_id = str(course.get('id', ''))
-            existing_course = session.query(Course).filter(Course.course_id == course_id).first()
+            course_id_api = str(course_api_item.get('id', ''))
+            existing_course_db = db_session.query(Course).filter(Course.course_id == course_id_api).first()
             
-            course_data = {
-                'course_id': course_id,
-                'meeting_code': course.get('meetingCode', ''),
-                'title': course.get('title', ''),
-                'description': course.get('remark', ''),
-                'language_id': course.get('languageId', 0),
-                'max_credits': json.dumps(course.get('maxCredits', [])),
-                'term_id': term_id,
-                'term_name': term_name,
-                'term_description': term_description,
-                'link_course_info': course.get('linkCourseInformationSheet', '')
+            course_data_for_db = {
+                'course_id': course_id_api,
+                'meeting_code': course_api_item.get('meetingCode', ''),
+                'title': course_api_item.get('title', ''),
+                'description': course_api_item.get('remark', ''),
+                'language_id': course_api_item.get('languageId', 0),
+                'max_credits': json.dumps(course_api_item.get('maxCredits', [])),
+                'term_id': term_id_from_api, 
+                'link_course_info': course_api_item.get('linkCourseInformationSheet', '')
             }
             
-            if existing_course:
-                for key, value in course_data.items():
-                    setattr(existing_course, key, value)
+            if existing_course_db:
+                for key, value in course_data_for_db.items():
+                    setattr(existing_course_db, key, value)
             else:
-                session.add(Course(**course_data))
+                db_session.add(Course(**course_data_for_db))
             
-            # Hole und speichere Kurszeiten direkt für jeden Kurs
-            course_dates = fetch_course_schedule(term_id, course_id)
-            if course_dates:
-                store_course_schedule(course_id, course_dates)
-                schedules_added += 1
+            course_dates_api = fetch_course_schedule(term_id_from_api, course_id_api)
+            if course_dates_api:
+                schedules_added_this_course = store_course_schedule(db_session, course_id_api, course_dates_api)
+                schedules_added_count += schedules_added_this_course
             
-            # Commit alle 50 Kurse, um den Speicher zu entlasten
             if i % 50 == 0:
-                session.commit()
+                db_session.commit()
             
-            courses_added += 1
+            courses_added_count += 1
         
-        # Finaler Commit
-        session.commit()
+        db_session.commit()
         
-        # Entferne den Fortschrittsbalken und zeige Erfolgsmeldung
         progress_bar.empty()
-        status.success(f"Erfolgreich importierte {courses_added} Kurse mit {schedules_added} Zeitplänen für {term_description}")
+        status.success(f"Erfolgreich importierte {courses_added_count} Kurse mit {schedules_added_count} Zeitplänen für {term_description_from_api} ({term_name_from_api}).")
         
-        # Lade die Seite neu, um die Änderungen anzuzeigen
         st.rerun()
-        
         return True
     except Exception as e:
-        session.rollback()
+        db_session.rollback()
         st.error(f"Fehler beim Speichern von Kursen: {str(e)}")
         return False
     finally:
-        session.close()
+        db_session.close()
 
-# Kurszeiten in Datenbank speichern
-def store_course_schedule(course_id, course_dates):
-    if not course_dates:
-        st.warning(f"Keine Kurstermine für Kurs {course_id} gefunden.")
-        return
+def store_course_schedule(db_session, course_id, course_dates_api):
+    if not course_dates_api:
+        return 0
         
-    session = SessionLocal()
     try:
-        # Lösche vorhandene Termine
-        session.query(CourseSchedule).filter(CourseSchedule.course_id == course_id).delete()
+        db_session.query(CourseSchedule).filter(CourseSchedule.course_id == course_id).delete()
         
-        # Zähle erfolgreich gespeicherte Termine
-        saved_dates = 0
-        
-        # Speichere neue Termine
-        for date in course_dates:
+        saved_dates_count = 0
+        for date_api_item in course_dates_api:
             try:
-                # Daten aus der API extrahieren
-                start_datetime = date.get('startTime')
-                end_datetime = date.get('endTime')
-                room = date.get('location', 'Kein Raum angegeben')
+                start_datetime = date_api_item.get('startTime')
+                end_datetime = date_api_item.get('endTime')
+                room = date_api_item.get('location', 'Kein Raum angegeben')
                 
                 if not start_datetime or not end_datetime:
                     continue
                 
-                # Datum und Zeit formatieren
-                start_date = start_datetime.split('T')[0]  # YYYY-MM-DD
-                start_time = start_datetime.split('T')[1][:5]  # HH:MM
-                end_time = end_datetime.split('T')[1][:5]  # HH:MM
+                start_date_val = start_datetime.split('T')[0]
+                start_time_val = start_datetime.split('T')[1][:5]
+                end_time_val = end_datetime.split('T')[1][:5]
                 
-                # Speichere den Termin
                 schedule_entry = CourseSchedule(
                     course_id=course_id,
-                    start_date=start_date,
-                    start_time=start_time,
-                    end_time=end_time,
+                    start_date=start_date_val,
+                    start_time=start_time_val,
+                    end_time=end_time_val,
                     room=room
                 )
-                session.add(schedule_entry)
-                saved_dates += 1
+                db_session.add(schedule_entry)
+                saved_dates_count += 1
             except Exception as e:
-                st.error(f"Fehler bei der Verarbeitung des Kurstermins: {e}")
+                print(f"Error processing schedule item for course {course_id}: {e}")
                 continue
-        
-        if saved_dates > 0:
-            session.commit()
-            st.success(f"{saved_dates} Kurstermine für Kurs {course_id} gespeichert.")
-        else:
-            st.warning(f"Keine Kurstermine für Kurs {course_id} gespeichert.")
+        return saved_dates_count
     except Exception as e:
-        session.rollback()
-        st.error(f"Fehler beim Speichern der Kurstermine: {str(e)}")
-    finally:
-        session.close()
+        print(f"Error storing course schedules for course {course_id}: {str(e)}")
+        raise 
 
-# Kursauswahl des Nutzers speichern
 def save_user_course_selections(user_id, course_ids):
-    session = SessionLocal()
-    session.query(UserCourse).filter(UserCourse.user_id == user_id).delete()
-    
-    for course_id in course_ids:
-        session.add(UserCourse(user_id=user_id, course_id=course_id))
-    
-    session.commit()
-    return True
+    db_session = SessionLocal()
+    try:
+        db_session.query(UserCourse).filter(UserCourse.user_id == user_id).delete()
+        for course_id_val in course_ids:
+            db_session.add(UserCourse(user_id=user_id, course_id=course_id_val))
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        print(f"Error saving user course selections for user {user_id}: {e}")
+        return False
+    finally:
+        db_session.close()
 
-# Streamlit Frontend Implementierung
 def display_hsg_api_page(user_id):
     st.title("HSG Kurse")
     
     user_id = st.session_state.get('user_id')
     username = st.session_state.get('username')
     
-    st.write(f"Grüezi {username}! Hier können Sie Ihre Kurse an der Universität St. Gallen verwalten.")
+    st.write(f"Grüezi {username.capitalize()}! Hier können Sie Ihre Kurse an der Universität St. Gallen verwalten.")
     
-    session = SessionLocal()
+    db_session = SessionLocal()
     try:
-        course_count = session.query(Course).count()
+        course_count_db = db_session.query(Course).count()
         
         with st.expander("Verwaltung: Kursdatenbank aktualisieren"):
-            if course_count > 0:
-                st.info(f"Aktuell enthält die Datenbank {course_count} Kurs.")
+            if course_count_db > 0:
+                st.info(f"Aktuell enthält die Datenbank {course_count_db} Kurs(e).")
             else:
                 st.warning("Noch keine Kurse in der Datenbank.")
             
@@ -303,55 +293,59 @@ def display_hsg_api_page(user_id):
                 if st.button("Neueste Kurse von HSG API abrufen"):
                     fetch_and_store_courses()
         
-        if course_count > 0:
+        if course_count_db > 0:
+            # Define local_lang_map once before tabs if used in multiple tabs, or inside each tab if specific
+            languages_in_db = db_session.query(Language).all()
+            local_lang_map = {lang.id: lang.language_name for lang in languages_in_db}
+
             tab1, tab2 = st.tabs(["Kurse auswählen", "Mein Stundenplan"])
             
             with tab1:
-                all_courses = session.query(
+                all_course_objects = db_session.query(
                     Course.course_id, Course.meeting_code, Course.title, 
                     Course.description, Course.language_id
                 ).all()
                 
-                user_course_ids = [uc.course_id for uc in session.query(
+                user_course_ids_db = [uc.course_id for uc in db_session.query(
                     UserCourse.course_id).filter(UserCourse.user_id == user_id).all()
                 ]
                 
-                df_courses = pd.DataFrame([{
-                    'course_id': c.course_id,
-                    'meeting_code': c.meeting_code,
-                    'title': c.title,
-                    'description': c.description,
-                    'language_id': c.language_id,
-                    'selected': 1 if c.course_id in user_course_ids else 0
-                } for c in all_courses])
+                df_courses_data = []
+                for c_obj in all_course_objects:
+                    df_courses_data.append({
+                        'course_id': c_obj.course_id,
+                        'meeting_code': c_obj.meeting_code,
+                        'title': c_obj.title,
+                        'description': c_obj.description,
+                        'language_id': c_obj.language_id,
+                        'language_name': local_lang_map.get(c_obj.language_id, f"Sprache {c_obj.language_id}"),
+                        'selected': 1 if c_obj.course_id in user_course_ids_db else 0
+                    })
                 
-                search_term = st.text_input("Suche nach Kursen nach Titel oder Code:", key="search_courses")
+                df_courses = pd.DataFrame(df_courses_data)
+                
+                search_term_val = st.text_input("Suche nach Kursen nach Titel oder Code:", key="search_courses")
                 
                 filtered_df = df_courses
-                if search_term and not df_courses.empty:
+                if search_term_val and not df_courses.empty:
                     filtered_df = df_courses[
-                        df_courses['title'].str.contains(search_term, case=False) | 
-                        df_courses['meeting_code'].str.contains(search_term, case=False)
+                        df_courses['title'].str.contains(search_term_val, case=False, na=False) | 
+                        df_courses['meeting_code'].str.contains(search_term_val, case=False, na=False)
                     ]
                 
-                languages = sorted(filtered_df['language_id'].unique()) if not filtered_df.empty else []
-                language_options = ["All"] + [LANGUAGE_MAP.get(lang, f"Language {lang}") for lang in languages]
-                selected_language = st.selectbox("Nach Sprache filtern:", language_options)
+                unique_lang_names = sorted(filtered_df['language_name'].unique()) if not filtered_df.empty else []
+                language_options = ["All"] + unique_lang_names
+                selected_language_name = st.selectbox("Nach Sprache filtern:", language_options)
                 
-                if selected_language != "All" and not filtered_df.empty:
-                    lang_id = [k for k, v in LANGUAGE_MAP.items() if v == selected_language][0]
-                    filtered_df = filtered_df[filtered_df['language_id'] == lang_id]
+                if selected_language_name != "All" and not filtered_df.empty:
+                    filtered_df = filtered_df[filtered_df['language_name'] == selected_language_name]
                 
                 st.write(f"Zeige {len(filtered_df)} Kurse")
                 
                 with st.form("course_selection_form"):
-                    # Container für die scrollbare Liste erstellen
                     course_container = st.container()
-                    
-                    # Speicherplatz für den Button reservieren (außerhalb des scrollbaren Bereichs)
                     submit_button_placeholder = st.empty()
                     
-                    # Scrollbaren Bereich definieren
                     with course_container:
                         st.markdown("""
                         <style>
@@ -362,65 +356,55 @@ def display_hsg_api_page(user_id):
                         </style>
                         """, unsafe_allow_html=True)
                         
-                        selected_courses = []
-                        for _, row in filtered_df.iterrows():
-                            course_id = row['course_id']
-                            title = row['title']
-                            code = row['meeting_code']
-                            lang = LANGUAGE_MAP.get(row['language_id'], f"Language {row['language_id']}")
+                        selected_courses_ids = []
+                        for _, row_data in filtered_df.iterrows():
+                            course_id_val = row_data['course_id']
+                            title_val = row_data['title']
+                            code_val = row_data['meeting_code']
+                            lang_name_val = row_data['language_name']
                             
                             is_selected = st.checkbox(
-                                f"{code} - {title} ({lang})",
-                                value=(row['selected'] == 1),
-                                key=f"course_{course_id}"
+                                f"{code_val} - {title_val} ({lang_name_val})",
+                                value=(row_data['selected'] == 1),
+                                key=f"course_{course_id_val}"
                             )
                             
                             if is_selected:
-                                selected_courses.append(course_id)
+                                selected_courses_ids.append(course_id_val)
                     
-                    # Button außerhalb des scrollbaren Bereichs platzieren
                     if submit_button_placeholder.form_submit_button("Kursauswahl speichern"):
-                        if save_user_course_selections(user_id, selected_courses):
+                        if save_user_course_selections(user_id, selected_courses_ids):
                             st.success("Ihre Kursauswahl wurde gespeichert!!")
                             st.rerun()
             
-            with tab2:
-                user_courses = session.query(
-                    Course.course_id, Course.meeting_code, Course.title, Course.description, 
-                    Course.language_id, Course.link_course_info
-                ).join(
-                    UserCourse, Course.course_id == UserCourse.course_id
-                ).filter(
-                    UserCourse.user_id == user_id
-                ).all()
+            with tab2: # "Mein Stundenplan"
+                user_selected_courses_details = get_user_courses(user_id)
                 
-                if len(user_courses) == 0:
+                if not user_selected_courses_details:
                     st.info("Du hast noch keine Kurse ausgewählt. Gehe zum 'Kurse auswählen'-Tab, um Kurse hinzuzufügen.")
                 else:
-                    st.write(f"Du hast {len(user_courses)} Kurse ausgewählt:")
-                    
-                    # Button zum Synchronisieren der Kurstermine mit dem Kalender
-                    if st.button("Kurszeiten mit Kalender synchronisieren"):
-                        with st.spinner("Synchronisiere Kurszeiten mit deinem Kalender..."):
-                            events_added = sync_course_schedule_to_calendar(user_id)
-                            if events_added > 0:
-                                st.success(f"{events_added} Kurstermine wurden zu deinem Kalender hinzugefügt!")
+                    st.write(f"Du hast {len(user_selected_courses_details)} Kurse ausgewählt:")
+                    # local_lang_map is already defined before tabs
+                    for course_detail in user_selected_courses_details:
+                        expander_label = f"{course_detail['meeting_code']} - {course_detail['title']}"
+                        with st.expander(label=expander_label, expanded=False): # MODIFIED: Added expander, default collapsed
+                            lang_name_display = local_lang_map.get(course_detail['language_id'], f"Sprache {course_detail['language_id']}")
+                            # st.subheader(f"{course_detail['meeting_code']} - {course_detail['title']}") # Subheader is now expander label
+                            st.write(f"**Sprache:** {lang_name_display}")
+                            st.write(f"**Termin:** {course_detail['term_name']}")
+                            st.write(f"**Beschreibung:** {course_detail['description']}")
+                            if course_detail['link_course_info']:
+                                st.markdown(f"[Weitere Informationen]({course_detail['link_course_info']})")
+                            
+                            course_schedule_entries = db_session.query(CourseSchedule).filter(CourseSchedule.course_id == course_detail['course_id']).all()
+                            if course_schedule_entries:
+                                st.write("**Zeitplan:**")
+                                for entry in course_schedule_entries:
+                                    st.write(f"- {entry.start_date} von {entry.start_time} bis {entry.end_time} in Raum {entry.room}")
                             else:
-                                st.warning("Es wurden keine Kurstermine gefunden oder sie sind bereits in deinem Kalender.")
-                    
-                    for course in user_courses:
-                        with st.expander(f"{course.meeting_code} - {course.title}"):
-                            st.write(f"**Sprache:** {LANGUAGE_MAP.get(course.language_id, 'Unbekannt')}")
-                            if course.description:
-                                st.write(f"**Beschreibung:** {course.description}")
-                            if course.link_course_info:
-                                st.markdown(f"[Kursmerkblatt]({course.link_course_info})")
-
-    
+                                st.write("Kein Zeitplan für diesen Kurs hinterlegt.")
+                        # st.divider() # Divider might be less necessary with expanders, or place outside
     except Exception as e:
-        st.error(f"Fehler beim Zugriff auf die Datenbank: {str(e)}")
+        st.error(f"Ein Fehler ist aufgetreten: {e}")
     finally:
-        session.close()
-
-if __name__ == "__main__":
-    display_hsg_api_page()
+        db_session.close()

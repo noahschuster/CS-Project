@@ -306,7 +306,8 @@ def log_session(user_id: int) -> Optional[int]:
         print(f"Für die Benutzer-ID protokollierte Sitzung: {user_id}. Session ID: {new_session.id}")
         return new_session.id
 
-# --- Token Management ---
+# Token Management
+# Generiert ein Authentifizierungstoken für einen Benutzer
 def generate_auth_token(user_id: int) -> Optional[str]:
     with get_db_session() as session:
         token = secrets.token_hex(32)
@@ -317,10 +318,10 @@ def generate_auth_token(user_id: int) -> Optional[str]:
         print(f"Für die Benutzer-ID generiertes Auth-Token: {user_id}")
         return token
 
+# Generiert ein Sitzungs-Token für einen Benutzer
 def generate_session_token(user_id: int, days_valid: int = 30) -> Optional[str]:
-    """Erzeugt und speichert ein neues persistentes Sitzungs-Token für einen Benutzer."""
     with get_db_session() as session:
-        # Clean up expired tokens for this user
+        # Lösche abgelaufene Tokens
         session.query(SessionToken).filter(
             SessionToken.user_id == user_id,
             SessionToken.expires_at <= datetime.utcnow()
@@ -329,32 +330,39 @@ def generate_session_token(user_id: int, days_valid: int = 30) -> Optional[str]:
         token = secrets.token_hex(32)
         expiry = datetime.utcnow() + timedelta(days=days_valid)
         
+        # Generiere neues Token
         new_token = SessionToken(user_id=user_id, token=token, expires_at=expiry)
         session.add(new_token)
+        # Debugging Statement
         print(f"Für die Benutzer-ID generiertes Session-Token: {user_id}")
         return token
 
+# Überprüft die Gültigkeit eines Authentifizierungstokens
 def validate_session_token(token: str) -> Optional[Tuple[int, str]]:
-    """Validiert ein Sitzungs-Token und gibt bei Gültigkeit Benutzerinformationen zurück."""
     with get_db_session() as session:
         session_token = session.query(SessionToken).filter(SessionToken.token == token).first()
         if not session_token or session_token.expires_at <= datetime.utcnow():
             if session_token:
-                # Clean up expired token
+                # Lösche abgelaufenes Token
                 session.delete(session_token)
+            # Debugging
             print(f"Session-Token ungültig oder abgelaufen")
             return None
-            
+        
+        # Token ist gültig, hole die Benutzer Daten
         user = session.query(User).filter(User.id == session_token.user_id).first()
         if not user:
+            # Debugging
             print(f"Benutzer für Sitzungs-Token nicht gefunden")
             return None
             
-        # Extend token validity (sliding session)
+        # Erneuere das Token
         session_token.expires_at = datetime.utcnow() + timedelta(days=30)
+        # Debugging
         print(f"Session-Token für Benutzer-ID validiert: {user.id}")
         return user.id, user.username
 
+# Löscht ein Authentifizierungstoken aus der Datenbank
 def delete_session_token(token: str) -> bool:
     """Löscht ein bestimmtes Sitzungs-Token aus der Datenbank."""
     with get_db_session() as session:
@@ -368,13 +376,15 @@ def delete_session_token(token: str) -> bool:
         print(f"Session token {token[:8]}... zur Löschung nicht gefunden.")
         return False
 
+# User Session Management
+# Ruft alle Sitzungen für einen Benutzer ab und berechnet die Dauer
 def get_user_sessions(user_id):
-    """Ruft alle Sitzungen für einen Benutzer ab und berechnet die Dauer."""
     with get_db_session() as session:
         user_sessions = session.query(UserSession).filter(
             UserSession.user_id == user_id
         ).order_by(UserSession.login_time.desc()).all()
 
+        # berechnet die Dauer jeder Sitzung in Stunden
         sessions_data = []
         for sess in user_sessions:
             login_time = sess.login_time
@@ -389,13 +399,14 @@ def get_user_sessions(user_id):
 
         return pd.DataFrame(sessions_data)
 
-# --- Calendar Event Management ---
+# Kalender Event Management
+# Speichert ein Kalenderevent in der Datenbank
 def save_calendar_event(user_id: int, event_data: Dict[str, Any]) -> Optional[int]:
-    """Speichert ein Kalenderevent in der Datenbank."""
     with get_db_session() as session:
-        # Check if event type is a deadline type
+        # Prüfe ob das Event eine Deadline ist
         is_deadline = event_data.get('type') in ["Prüfung", "Aufgabe fällig", "Projekt fällig"]
         
+        # Neues Kalenderevent erstellen
         new_event = CalendarEvent(
             user_id=user_id,
             title=event_data.get('title'),
@@ -404,20 +415,21 @@ def save_calendar_event(user_id: int, event_data: Dict[str, Any]) -> Optional[in
             event_type=event_data.get('type'),
             color=event_data.get('color'),
             is_deadline=is_deadline,
-            priority=event_data.get('priority', 2)  # Default medium priority
+            priority=event_data.get('priority', 2)
         )
         session.add(new_event)
         session.flush()
+        # Debugging Information
         print(f"Ereignis für Benutzer-ID gespeichert: {user_id}. Event ID: {new_event.id}")
         return new_event.id
 
+# ruft alle Kalendereinträge für einen Benutzer ab
 def get_calendar_events(user_id: int) -> List[Dict[str, Any]]:
-    """Ruft alle Kalenderereignisse für einen Benutzer ab."""
     with get_db_session() as session:
         events = session.query(CalendarEvent).filter(
             CalendarEvent.user_id == user_id
         ).all()
-        
+        # gib die Ereignisse als Liste von Dictionaries zurück
         return [
             {
                 'id': event.id,
@@ -433,18 +445,19 @@ def get_calendar_events(user_id: int) -> List[Dict[str, Any]]:
             for event in events
         ]
 
+# Aktualisiert ein Kalenderevent in der Datenbank
 def update_calendar_event(event_id: int, event_data: Dict[str, Any]) -> bool:
-    """Ruft alle Kalenderereignisse für einen Benutzer ab."""
     with get_db_session() as session:
         event = session.query(CalendarEvent).filter(
             CalendarEvent.id == event_id
         ).first()
         
         if not event:
+            # Debugging
             print(f"Ereignis für ID nicht gefunden: {event_id}")
             return False
             
-        # Check if event type is a deadline type
+        # Prüfe ob das Event eine Deadline ist
         is_deadline = event_data.get('type') in ["Prüfung", "Aufgabe fällig", "Projekt fällig"]
         
         event.title = event_data.get('title', event.title)
@@ -455,48 +468,52 @@ def update_calendar_event(event_id: int, event_data: Dict[str, Any]) -> bool:
         event.is_deadline = is_deadline
         event.priority = event_data.get('priority', event.priority)
         
+        #debugging
         print(f"Ereignis erfolgreich aktualisiert. Ereignis-ID:  {event_id}")
         return True
 
+# Löscht ein Kalenderevent aus der Datenbank
 def delete_calendar_event(event_id: int) -> bool:
-    """Löscht ein Kalenderereignis."""
     with get_db_session() as session:
         deleted_count = session.query(CalendarEvent).filter(
             CalendarEvent.id == event_id
         ).delete(synchronize_session=False)
         
         if deleted_count > 0:
+            # DEbugging
             print(f"Ereignis erfolgreich gelöscht. Ereignis-ID: {event_id}")
             return True
+        # Debugging
         print(f"Ereignis für ID nicht gefunden: {event_id}")
         return False
 
-# --- Study Task Management ---
+# Lernaufgaben
+# Speichert eine Aufgabe in der Datenbank
 def save_study_task(user_id: int, task_data: Dict[str, Any]) -> Optional[int]:
-    """Speichert eine Studienaufgabe in der Datenbank."""
     with get_db_session() as session:
-        # Convert methods list to JSON string
+        # In json strings umwandeln
         methods_json = json.dumps(task_data.get("methods", []))
         
+        # Neues Objekt erstellen
         new_task = StudyTask(
             user_id=user_id,
             course_id=task_data.get("course_id"),
-            # course_title and course_code are removed, will be fetched via relationship
             date=task_data.get("date"),
             start_time=task_data.get("start_time"),
             end_time=task_data.get("end_time"),
             topic=task_data.get("topic"),
             methods=methods_json,
-            completed=task_data.get("completed", False) # Retain completed field if passed
+            completed=task_data.get("completed", False)
         )
         
         session.add(new_task)
         session.flush()
+        # Debugging Ausgabe
         print(f"Studienaufgabe für User-ID gespeichert: {user_id}. Task ID: {new_task.id}")
         return new_task.id
 
+# Ruft alle Aufgaben für einen Benutzer ab
 def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
-    """Ruft alle Lernaufgaben für einen Benutzer ab, inklusive Kursdetails."""
     with get_db_session() as session:
         tasks_with_course_info = session.query(
             StudyTask,
@@ -508,14 +525,15 @@ def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
             StudyTask.user_id == user_id
         ).all()
         
+        # Gibt die Liste der Aufgaben zurück
         result_list = []
         for task, course_title, course_code in tasks_with_course_info:
             result_list.append({
                 "id": task.id,
                 "user_id": task.user_id,
                 "course_id": task.course_id,
-                "course_title": course_title,  # Fetched via join
-                "course_code": course_code,    # Fetched via join
+                "course_title": course_title,
+                "course_code": course_code, 
                 "date": task.date,
                 "start_time": task.start_time,
                 "end_time": task.end_time,
@@ -526,18 +544,19 @@ def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
             })
         return result_list
 
+# Aktualisiert eine bestehende Studienaufgabe
 def update_study_task(task_id: int, update_data: Dict[str, Any]) -> bool:
-    """Aktualisiert eine bestehende Studienaufgabe."""
     with get_db_session() as session:
         task = session.query(StudyTask).filter(
             StudyTask.id == task_id
         ).first()
         
         if not task:
+            # Debugging
             print(f"Studienaufgabe für ID nicht gefunden: {task_id}")
             return False
             
-        # Update fields if provided
+        # Update der Felder
         if 'date' in update_data:
             task.date = update_data['date']
         if 'start_time' in update_data:
@@ -551,26 +570,29 @@ def update_study_task(task_id: int, update_data: Dict[str, Any]) -> bool:
         if 'completed' in update_data:
             task.completed = update_data['completed']
         
+        # Debugging Ausgabe
         print(f"Studienaufgabe aktualisiert. Task ID: {task_id}")
         return True
 
+# Aktualisiert den Status einer Studienaufgabe
 def update_study_task_status(task_id: int, completed: bool) -> bool:
-    """Aktualisiert den Abschlussstatus einer Studienaufgabe."""
     with get_db_session() as session:
         task = session.query(StudyTask).filter(
             StudyTask.id == task_id
         ).first()
         
         if not task:
+            # Debugging
             print(f"Study task für ID nicht gefunden: {task_id}")
             return False
             
         task.completed = completed
+        # Debugging Ausgabe
         print(f"Status der Studienaufgaben aktualisiert. Task ID: {task_id}")
         return True
 
+# Löscht eine Studienaufgabe aus der Datenbank
 def delete_study_task(task_id: int) -> bool:
-    """Löscht eine Studienaufgabe."""
     with get_db_session() as session:
         deleted_count = session.query(StudyTask).filter(
             StudyTask.id == task_id

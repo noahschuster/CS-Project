@@ -1,7 +1,6 @@
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime
 import streamlit.components.v1 as components
-import pandas as pd
 
 # Import unserer Module
 from api_connection import get_user_courses
@@ -71,7 +70,6 @@ def logout_user(cookies):
         """,
         height=50
     )
-
     st.stop()
 
 # anzeigen anstehender Fristen
@@ -127,6 +125,7 @@ def display_upcoming_deadlines(user_id):
             else:
                 days_text = f"In {days_left} Tagen"
             
+            # Custom Styling
             st.markdown(
                 f"""<div style='background-color: {deadline['color']}; padding: 8px;
                  border-radius: 5px; margin-bottom: 5px;'>
@@ -138,12 +137,10 @@ def display_upcoming_deadlines(user_id):
     else:
         st.info("Keine Termine in den nächsten 14 Tage! 🎉")
 
-
 # Dashboard anzeigen
 def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")
     st.subheader("Deine Learning Journey")
-
     
     # lerntyp, kurse und sessions holen
     learning_type = get_user_learning_type(user_id)

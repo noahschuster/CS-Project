@@ -16,22 +16,9 @@ from dashboard_charts import (
 # Konstanten
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
-# because some dependencies like steamlit_cookie_manager use the old version called st.cache we have to replace it with the newer function cache_data else we get an error (got this fix from the streamlit discussino forum)
+# manche dependencies (e.g., streamlit_cookie_manager) nutzen die alte Version st.cache aber streamlit hat diese Funktion durch cache_data oder cache_resource ersetzt, da wir die libraries nicht überschreiben können ersetzen wir st.cache hiermit (wir haben diese Lösung im Streamlit Discussion Forum gefunden)
 if hasattr(st, "cache"):
     st.cache = st.cache_data
-
-# Cache Funktionen um die Datenbankabfragen zu optimieren (Empfehlung von Stackoverflow um Ladezeiten zu reduzieren)
-@st.cache_data(ttl=600, max_entries=32)
-def get_cached_user_learning_type(user_id):
-    return get_user_learning_type(user_id)
-
-@st.cache_data(ttl=600, max_entries=32)
-def get_cached_user_courses(user_id):
-    return get_user_courses(user_id)
-
-@st.cache_data(ttl=300, max_entries=32)
-def get_cached_calendar_events(user_id):
-    return get_calendar_events(user_id)
 
 # prüfe ob Nutzer eingeloggt ist
 def check_login():
@@ -45,11 +32,11 @@ def logout_user(cookies):
     """Erledigt die Benutzerabmeldung"""
     # Get session token from cookie
     session_token = cookies.get(SESSION_COOKIE_NAME)
-    
+
     # Delete token from database if exists
     if session_token:
         delete_session_token(session_token)
-    
+
     # Delete the cookie from browser
     if session_token:
         try:
@@ -61,7 +48,7 @@ def logout_user(cookies):
     # Clear Streamlit session state
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    
+
     # Reset minimal session state
     st.session_state.update({
         "logged_in": False,
@@ -70,13 +57,13 @@ def logout_user(cookies):
         "login_attempted": False,
         "learning_type_completed": False
     })
-    
+
     # Clear URL parameters
     try:
         st.query_params.clear()
     except Exception:
         pass
-    
+
     # Force page reload
     components.html(
         """
@@ -85,32 +72,32 @@ def logout_user(cookies):
         """,
         height=50
     )
-    
+
     st.stop()
 
 def display_upcoming_deadlines(user_id):
     """Anzeige anstehender Fristen mit effizienter Datenverarbeitung"""
     # Get today's date
     today = datetime.now().date()
-    
+
     # Get events from database (cached)
-    events = get_cached_calendar_events(user_id)
-    
+    events = get_calendar_events(user_id)
+
     # Define deadline types
     deadline_types = ["Aufgabe fällig", "Prüfung", "Projekt fällig"]
-    
+
     # Filter and sort deadlines in one pass
     upcoming_deadlines = []
-    
+
     for event in events:
         # Check if it's a deadline
         if not (event.get('is_deadline', False) or event.get('type') in deadline_types):
             continue
-            
+
         # Parse date once
         try:
             deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
-            
+
             # Check date range
             if today <= deadline_date <= today + timedelta(days=14):
                 # Add days_left calculation here to avoid recomputing later
@@ -118,15 +105,15 @@ def display_upcoming_deadlines(user_id):
                 upcoming_deadlines.append(event)
         except (ValueError, TypeError):
             continue  # Skip invalid dates
-    
+
     # Sort by date
     upcoming_deadlines.sort(key=lambda e: e.get('days_left', 14))
-    
+
     # Display deadlines
     if upcoming_deadlines:
         for deadline in upcoming_deadlines:
             days_left = deadline['days_left']
-            
+
             # Format days left text
             if days_left == 0:
                 days_text = "⚠️ HEUTE"
@@ -134,7 +121,7 @@ def display_upcoming_deadlines(user_id):
                 days_text = "⚠️ MORGEN"
             else:
                 days_text = f"In {days_left} Tagen"
-            
+
             st.markdown(
                 f"""<div style='background-color: {deadline['color']}; padding: 8px;
                  border-radius: 5px; margin-bottom: 5px;'>
@@ -155,25 +142,25 @@ def display_dashboard(user_id, username):
     #display_dashboard_warning(user_id)
 
     # Get user data with caching
-    learning_type = get_cached_user_learning_type(user_id)
-    
+    learning_type = get_user_learning_type(user_id)
+
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Quick Stats")
-        
+
         # Fetch course data
         try:
-            user_courses = get_cached_user_courses(user_id)
+            user_courses = get_user_courses(user_id)
             course_count = len(user_courses) if user_courses else 0
         except Exception as e:
             st.error(f"Fehler beim Abrufen von Kursen: {str(e)}")
             course_count = "Error"
-        
+
         # Fetch session data once
         try:
             sessions_df = get_user_sessions(user_id)
             session_count = len(sessions_df)
-            
+
             # Calculate total hours efficiently
             if not sessions_df.empty and 'duration_hours' in sessions_df.columns:
                 total_hours = sessions_df["duration_hours"].sum()
@@ -184,7 +171,7 @@ def display_dashboard(user_id, username):
             session_count = "Error"
             total_hours = "Error"
             sessions_df = pd.DataFrame()  # Empty dataframe for safe access later
-        
+
         # Display metrics
         st.metric("Eingeschriebene Kurse", course_count)
         st.metric("Lern-Sessions", session_count)
@@ -194,15 +181,15 @@ def display_dashboard(user_id, username):
         st.write("### Lernzeiten nach Thema")
         st.write("Dieses Diagramm zeigt, wie viel Zeit du für die einzelnen Themen oder Fächer aufgewendet hast. Es hilft dir, deine Lernzeit besser zu verstehen und zu priorisieren.")
         create_pie_chart_learning_time_by_subject(user_id)
-    
+
     with col2:
         st.subheader("Letzte Aktivitäten")
-        
+
         # Process session data efficiently
         if isinstance(session_count, int) and session_count > 0 and not sessions_df.empty:
             # Get only the needed columns and rows
             recent_sessions = sessions_df.head(5)
-            
+
             for _, session in recent_sessions.iterrows():
                 login_time = session.get("login_time", "N/A")
                 login_time_str = login_time.strftime("%Y-%m-%d %H:%M") if isinstance(login_time, datetime) else str(login_time)
@@ -210,7 +197,7 @@ def display_dashboard(user_id, username):
                 st.write(f"📚 Study session am {login_time_str} - Dauer: {duration:.1f} Stunden")
         elif session_count == 0:
             st.write("In letzter Zeit wurden keine Aktivitäten verzeichnet.")
-        
+
         st.subheader("Kommende Fristen")
         display_upcoming_deadlines(user_id)
 
@@ -221,7 +208,6 @@ def display_dashboard(user_id, username):
             st.write("Auf der Grundlage Ihres Lerntyps haben wir Ihr Erlebnis individuell gestaltet.")
         else:
             st.warning("Sie haben Ihren Lerntyp noch nicht festgelegt. Gehen Sie zum Abschnitt Lerntyp, um das Quiz zu absolvieren.")
-            
 
          # Diagramm 2: Zeitnutzung der nächsten Woche
         st.write("### Zeitnutzung der nächsten Woche")
@@ -236,21 +222,21 @@ def main(cookies):
     # Only check cookie readiness once
     if not cookies.ready():
         st.stop()
-        
+
     user_id, username = check_login()
-        
+
     # Check if learning type is completed - redirect if not
     if not st.session_state.get("learning_type_completed", False):
         # Import only when needed
         from learning_type import display_learning_type
         display_learning_type(user_id)
         return
-        
+
     # Create sidebar
     with st.sidebar:
         st.title("StudyBuddy")
         st.write(f"Willkommen, {username.capitalize()}!")
-                
+
         # Navigation options
         pages = {
             "Dashboard": display_dashboard,
@@ -260,12 +246,12 @@ def main(cookies):
             "Lern-Empfehlungen": "learning_suggestions.display_learning_suggestions",
             "Prokrastinations-Risiko": "procrastination_risk.run_procrastination_questionnaire" # MODIFIED HERE
         }
-                
+
         page = st.radio("Navigation", list(pages.keys()))
-                
+
         if st.button("Logout", key="logout_button"):
             logout_user(cookies)
-            
+
     # Load page dynamically - only import the module when needed
     if page == "Dashboard":
         display_dashboard(user_id, username)

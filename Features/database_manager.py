@@ -4,7 +4,6 @@ import urllib.parse
 import secrets
 import bcrypt
 import pandas as pd
-import streamlit as st
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional, Tuple, List, Dict, Any
@@ -385,7 +384,6 @@ def delete_session_token(token: str) -> bool:
         print(f"Session token {token[:8]}... zur Löschung nicht gefunden.")
         return False
 
-@st.cache_data(ttl=300)
 def get_user_sessions(user_id):
     """Ruft alle Sitzungen für einen Benutzer ab und berechnet die Dauer."""
     with get_db_session() as session:

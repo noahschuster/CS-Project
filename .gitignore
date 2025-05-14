@@ -3,5 +3,6 @@ studybuddy.db
 users.db
 Features/__pycache__/
 .DS_Store
+Features/.DS_Store
 local_database.db
 Features/local_database.db

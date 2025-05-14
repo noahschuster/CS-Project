@@ -1,22 +1,17 @@
 import streamlit as st
-from utils import get_user_learning_type
+from learning_type import get_user_learning_type
 
+# Frontend um Learning Tips anzuzeigen. Basiert auf dem mit VARK ermittelten Lerntyp des Benutzers
 def display_learning_tips(user_id):
-    """
-    Zeigt personalisierte Lerntipps basierend auf dem VARK-Lerntyp des Benutzers an.
-    """
     st.title("Personalisierte Lerntipps")
     
     # Lerntyp mit Fehlerbehandlung abrufen
     learning_type = get_user_learning_type(user_id)
-    if not learning_type:
-        st.warning("Bitte führen Sie zuerst die Lernstilbewertung durch.")
-        return
 
     # Kurze Erklärung zum Lerntyp anzeigen
     st.write(f"Ihr Lerntyp: **{learning_type}**")
     
-    # Verbesserte VARK-Lernstrategien mit detaillierteren und praktischeren Tipps
+    # VARK-Lernstrategien mit konkreten Tipps
     tip_mapping = {
         "Visuell": {
             "title": "Visuelle Strategien",

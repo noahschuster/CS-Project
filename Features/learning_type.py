@@ -1,6 +1,26 @@
 import streamlit as st
-from utils import get_user_learning_type, set_learning_type
 
+# Import Module aus database_manager
+from database_manager import get_db_session, User
+
+# Speichert den Lerntyp des Benutzers in der Datenbank
+def set_learning_type(user_id, learning_type):
+    with get_db_session() as session:
+        user = session.query(User).filter(User.id == user_id).first()
+        if user:
+            user.learning_type = learning_type
+            user.learning_type_completed = 1
+            session.commit()
+            return True
+        return False
+
+# Ruft den Lerntyp des Benutzers aus der Datenbank ab
+@st.cache_data(ttl=300)
+def get_user_learning_type(user_id):
+    with get_db_session() as session:
+        user = session.query(User).filter(User.id == user_id).first()
+        return user.learning_type if user else None
+    
 # VARK scoring chart - defined once outside function for efficiency
 VARK_CHART = {
     1: {"a": "K", "b": "A", "c": "R", "d": "V"},

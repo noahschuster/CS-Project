@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 import streamlit as st
-from database_manager import get_db_session, User, UserSession
+from database_manager import get_db_session, UserSession
 
 @st.cache_data(ttl=300)
 def get_user_sessions(user_id):
@@ -24,21 +24,3 @@ def get_user_sessions(user_id):
             })
 
         return pd.DataFrame(sessions_data)
-
-@st.cache_data(ttl=300)
-def get_user_learning_type(user_id):
-    """Ruft den Lerntyp des Benutzers aus der Datenbank ab."""
-    with get_db_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
-        return user.learning_type if user else None
-
-def set_learning_type(user_id, learning_type):
-    """Legt den Lerntyp des Benutzers fest und markiert ihn als abgeschlossen."""
-    with get_db_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
-        if user:
-            user.learning_type = learning_type
-            user.learning_type_completed = 1
-            session.commit()
-            return True
-        return False

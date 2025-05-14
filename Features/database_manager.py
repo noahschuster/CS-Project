@@ -3,6 +3,8 @@ import json
 import urllib.parse
 import secrets
 import bcrypt
+import pandas as pd
+import streamlit as st
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional, Tuple, List, Dict, Any
@@ -10,7 +12,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.orm import relationship
-
 
 # Mit der folgenden Zeile kann der Offline Modus aktiviert werden. 
 # Statt einer Azure SQL-Datenbank wird eine lokale SQLite-Datenbank verwendet, die keine zusätzlichen Installationen benötigt.
@@ -382,6 +383,28 @@ def delete_session_token(token: str) -> bool:
             return True
         print(f"Session token {token[:8]}... zur Löschung nicht gefunden.")
         return False
+
+@st.cache_data(ttl=300)
+def get_user_sessions(user_id):
+    """Ruft alle Sitzungen für einen Benutzer ab und berechnet die Dauer."""
+    with get_db_session() as session:
+        user_sessions = session.query(UserSession).filter(
+            UserSession.user_id == user_id
+        ).order_by(UserSession.login_time.desc()).all()
+
+        sessions_data = []
+        for sess in user_sessions:
+            login_time = sess.login_time
+            logout_time = sess.logout_time or datetime.utcnow()
+            duration_hours = (logout_time - login_time).total_seconds() / 3600
+            
+            sessions_data.append({
+                "login_time": login_time,
+                "logout_time": logout_time,
+                "duration_hours": round(duration_hours, 2)
+            })
+
+        return pd.DataFrame(sessions_data)
 
 # --- Calendar Event Management ---
 def save_calendar_event(user_id: int, event_data: Dict[str, Any]) -> Optional[int]:

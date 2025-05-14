@@ -133,9 +133,11 @@ def display_dashboard(user_id, username):
     st.title("StudyBuddy Dashboard")
     st.subheader("Deine Learning Journey")
 
+    
     # lerntyp, kurse und sessions holen
     learning_type = get_user_learning_type(user_id)
     user_courses = get_user_courses(user_id) or []
+    sessions_df = get_user_sessions(user_id)
     col1, col2 = st.columns(2)
     
     with col1:

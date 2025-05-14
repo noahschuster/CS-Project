@@ -1,18 +1,16 @@
 import streamlit as st
 import datetime
 import calendar
-from datetime import datetime, timedelta
-import locale
-#locale.setlocale(locale.LC_TIME, "de_DE")
-import random
+from datetime import datetime
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
 from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 
+## Zum Styling der folgenden Datei haben wir mit ChatGPT experimentiert und mal geschaut was mit CSS alles so möglich ist.
 # Streamlit Frontend
 def display_calendar(user_id):
     st.title("Studienkalender")
     
-    # Tab-System für Kalender und Google Sync
+    # einzelne Tabs für Kalender Ansicht und Google Sync
     cal_tab1, cal_tab2 = st.tabs(["Kalender", "Google Kalender Sync"])
     
     with cal_tab1:
@@ -23,16 +21,17 @@ def display_calendar(user_id):
         # Prüfe auf automatische Synchronisation
         check_auto_sync(user_id)
         
-        # Calendar navigation
+        # Calender Navigation
         col1, col2, col3 = st.columns([2, 3, 2])
         
         with col1:
-            # Aktuelle DAtum bestimmen
+            # Aktuelles Datum bestimmen
             if 'calendar_month' not in st.session_state:
                 st.session_state.calendar_month = datetime.now().month
             if 'calendar_year' not in st.session_state:
                 st.session_state.calendar_year = datetime.now().year
-                
+            
+            #Buttons für Navigation
             if st.button("◀ Vorheriger Monat"):
                 st.session_state.calendar_month -= 1
                 if st.session_state.calendar_month < 1:
@@ -44,6 +43,8 @@ def display_calendar(user_id):
                 if st.session_state.calendar_month > 12:
                     st.session_state.calendar_month = 1
                     st.session_state.calendar_year += 1
+        
+        # Anzeigen vom Monat
         with col2:
             month_name = calendar.month_name[st.session_state.calendar_month]
             st.subheader(f"{month_name} {st.session_state.calendar_year}")
@@ -242,17 +243,17 @@ def display_calendar(user_id):
                     formatted_date = date_obj.strftime("%A, %B %d, %Y")
                     events_by_date[formatted_date].append(event)
                 
-                # DAtums chronologisch sortieren
+                # Datums chronologisch sortieren
                 sorted_dates = sorted(events_by_date.keys(),
                                       key=lambda x: datetime.strptime(x, "%A, %B %d, %Y"))
                 
-                # Einträge nach DAtum sortiert anzeigen
+                # Einträge nach Datum sortiert anzeigen
                 for date in sorted_dates:
                     with st.expander(date):
                         for i, event in enumerate(events_by_date[date]):
                             col1, col2 = st.columns([5, 1])
                             with col1:
-                                # styling von Chatgpt empfohlen
+                                # styling von Chatgpt übernommen
                                 st.markdown(
                                     f"""<div style='background-color: {event['color']}; padding: 10px;
                                      border-radius: 5px; margin-bottom: 5px;'>

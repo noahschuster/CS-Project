@@ -1,5 +1,3 @@
-# database_manager.py
-
 import os
 import json
 import urllib.parse
@@ -7,21 +5,21 @@ import secrets
 import bcrypt
 from datetime import datetime, timedelta
 from contextlib import contextmanager
-from typing import Optional, Tuple, List, Dict, Any, Union
-
+from typing import Optional, Tuple, List, Dict, Any
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.exc import IntegrityError, OperationalError
 
 
-# Am Anfang der database_manager.py
-OFFLINE_MODE = True  # Auf False setzen, wenn du wieder online gehen willst
+# Mit der folgenden Zeile kann der Offline Modus aktiviert werden. 
+# Statt einer Azure SQL-Datenbank wird eine lokale SQLite-Datenbank verwendet, die keine zusätzlichen Installationen benötigt.
+# Auf False setzen, um mit Azure SQL zu arbeiten
+OFFLINE_MODE = True
 
-# Load environment variables
+# Laden der Umgebungsvariablen aus der .env-Datei
 load_dotenv()
 
-
+# Funktion die für Offline- und Online-Modus die jeweils richtige Engine zurückgibt
 def get_db_engine():
     if OFFLINE_MODE:
         # SQLite für Offline-Modus
@@ -36,17 +34,14 @@ def get_db_engine():
         return get_azure_db_engine()
 
 
-# --- Database Connection Configuration ---
+# Funktion die eine SQLAlchemy-Engine für Azure SQL Database baut
 def get_azure_db_engine():
-    """Einstiegspunkt für dashboardaErzeugt und liefert eine SQLAlchemy-Engine für Azure SQL Database."""
+    # laden der Umgebungsvariablen aus der .env-Datei
     server = os.getenv("DB_SERVER", "studybuddyhsg.database.windows.net")
     database = os.getenv("DB_DATABASE", "CS-Project-DB")
     username = os.getenv("DB_USERNAME", "CloudSA74f1c350")
     password = os.getenv("DB_PASSWORD")
     driver = os.getenv("DB_DRIVER", "{ODBC Driver 18 for SQL Server}")
-
-    if not password:
-        raise ValueError("Die Umgebungsvariable DB_PASSWORD ist nicht gesetzt.")
 
     conn_str = (
         f"Driver={driver};"
@@ -66,13 +61,13 @@ def get_azure_db_engine():
         engine = create_engine(
             engine_url, 
             echo=False,
-            pool_pre_ping=True,  # Check connection validity before use
-            pool_recycle=3600,   # Recycle connections every hour to avoid stale connections
-            pool_size=10,        # Maintain a pool of connections
-            max_overflow=20      # Allow up to 20 connections to be created beyond the pool_size
+            pool_pre_ping=True,  # Prüfe Verbingung vor der Verwendung
+            pool_recycle=3600, 
+            pool_size=10,
+            max_overflow=20
         )
         
-        # Test connection
+        # Test der Verbindung und Ausgabe für Debugging
         with engine.connect():
             print("Erfolgreich mit der Azure SQL-Datenbank verbunden.")
         return engine
@@ -80,15 +75,14 @@ def get_azure_db_engine():
         print(f"Fehler beim Verbinden mit der Azure SQL-Datenbank: {e}")
         raise
 
-# Initialize engine and session factory
+# Initialisierung der Engine und SessionLocal
 engine = get_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Context manager for database sessions
+# Kontextmanager für Datenbanksitzungen, um eine ordnungsgemäße Bereinigung zu gewährleisten
 @contextmanager
 def get_db_session():
-    """Kontextmanager für Datenbanksitzungen, um eine ordnungsgemäße Bereinigung zu gewährleisten."""
     session = SessionLocal()
     try:
         yield session
@@ -99,7 +93,8 @@ def get_db_session():
     finally:
         session.close()
 
-# --- SQLAlchemy ORM Models ---
+# Definition der einzlen Tabellen in unserer Datenbank
+# Nutzer und seine Daten. Vor allem für die Authentifizierung wichtig
 class User(Base):
     __tablename__ = "users"
 
@@ -111,6 +106,7 @@ class User(Base):
     learning_type_completed = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+# Logging der Nutzer-Sitzungen für Auswertungen der Lernzeit
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
@@ -119,6 +115,7 @@ class UserSession(Base):
     login_time = Column(DateTime, default=datetime.utcnow)
     logout_time = Column(DateTime, nullable=True)
 
+# Tokens, damit auch bei Reloads die Authentifizierung nicht verloren geht
 class AuthToken(Base):
     __tablename__ = "auth_tokens"
 
@@ -128,6 +125,7 @@ class AuthToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
+# Tokens, damit auch bei Reloads die Authentifizierung nicht verloren geht
 class SessionToken(Base):
     __tablename__ = "session_tokens"
 
@@ -137,6 +135,7 @@ class SessionToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
+# Kurszeiten, damit die Kurse auch im Kalender angezeigt werden können ohne jedes mal von der API abgerufen werden zu müssen
 class CourseSchedule(Base):
     __tablename__ = "course_schedules"
     
@@ -148,7 +147,7 @@ class CourseSchedule(Base):
     room = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
+# Speicherung der Kurse, damit diese nicht jedes mal von der API abgerufen werden müssen
 class Course(Base):
     __tablename__ = "courses"
     
@@ -165,6 +164,7 @@ class Course(Base):
     link_course_info = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
 
+# Speicherung der Kurse, die ein Nutzer ausgewählt hat
 class UserCourse(Base):
     __tablename__ = "user_courses"
     
@@ -173,6 +173,7 @@ class UserCourse(Base):
     course_id = Column(String(100), nullable=False)
     selected_at = Column(DateTime, default=datetime.utcnow)
 
+# Speicherung der Kalendereinträge
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
     
@@ -182,11 +183,12 @@ class CalendarEvent(Base):
     date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
     time = Column(String(5), nullable=False)   # Format: HH:MM
     event_type = Column(String(50), nullable=False)
-    color = Column(String(7), nullable=False)  # Hex color code
+    color = Column(String(7), nullable=False)  # Hex Farbcode
     is_deadline = Column(Boolean, default=False)
-    priority = Column(Integer, default=2)      # Priority: 1=High, 2=Medium, 3=Low
+    priority = Column(Integer, default=2)      # Priorität: 1=High, 2=Medium, 3=Low
     created_at = Column(DateTime, default=datetime.utcnow)
 
+# Speicherung der Studienaufgaben
 class StudyTask(Base):
     __tablename__ = "study_tasks"
     
@@ -199,31 +201,27 @@ class StudyTask(Base):
     start_time = Column(String(5), nullable=False)  # Format: HH:MM
     end_time = Column(String(5), nullable=False)    # Format: HH:MM
     topic = Column(String(255), nullable=False)
-    methods = Column(String(1000), nullable=False)  # JSON-string of learning methods
+    methods = Column(String(1000), nullable=False)  # JSON-string für Lernmethoden
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# --- Database Initialization ---
+# Funktion zum Initialisieren der Datenbanktabellen
 def init_db():
-    """Erstellt Datenbanktabellen, wenn sie nicht existieren."""
     try:
         Base.metadata.create_all(bind=engine)
         print("Datenbanktabellen erfolgreich geprüft/erstellt.")
-    except OperationalError as e:
-        print(f"Datenbankverbindungsfehler während init_db: {e}")
     except Exception as e:
         print(f"Bei der Erstellung der Tabelle ist ein Fehler aufgetreten: {e}")
 
-# --- Password Utilities ---
+# Verschlüsselung der Passwörter
 def hash_password(password: str) -> str:
-    """Verschlüsselt ein Passwort mit bcrypt."""
     pwd_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(pwd_bytes, salt)
     return hashed_password.decode("utf-8")
 
+#Überprüft ein einfaches Passwort mit einem gehashten Passwort.
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Überprüft ein einfaches Passwort mit einem gehashten Passwort."""
     try:
         password_bytes = plain_password.encode("utf-8")
         hashed_password_bytes = hashed_password.encode("utf-8")
@@ -231,51 +229,49 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
-# --- User Management ---
+# Nutzerverwaltung: Fügt bei Registrierung einen neuen Nutzer hinzu
 def add_user(username: str, password: str, email: str) -> Optional[int]:
-    """Fügt einen neuen Benutzer in die Datenbank ein."""
     with get_db_session() as session:
-        try:
-            # Check if username or email already exists
-            existing_user = session.query(User).filter(
-                (User.username == username) | (User.email == email)
-            ).first()
-            if existing_user:
-                print(f"Username '{username}' oder Email '{email}' existiert bereits.")
-                return None
-
-            hashed_pw = hash_password(password)
-            new_user = User(username=username, hashed_password=hashed_pw, email=email)
-            session.add(new_user)
-            session.flush()  # Flush to get the ID without committing
-            print(f"User '{username}' erfolgreich hinzugefügt mit ID: {new_user.id}")
-            return new_user.id
-        except IntegrityError:
-            print(f"Datenbankintegritätsfehler beim Hinzufügen eines Benutzers: {username}")
+        # prüfen, ob der Nutzer bereits existiert
+        existing_user = session.query(User).filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        if existing_user:
+            print(f"Username '{username}' oder Email '{email}' existiert bereits.")
             return None
+        # Nutzer hinzufügen
+        hashed_pw = hash_password(password)
+        new_user = User(username=username, hashed_password=hashed_pw, email=email)
+        session.add(new_user)
+        session.flush()  # Flush um die ID des neuen Nutzers zu erhalten
+        # Controll Statement für Debugging
+        print(f"User '{username}' erfolgreich hinzugefügt mit ID: {new_user.id}")
+        return new_user.id
 
+# Nutzerverwaltung: Authentifizierung eines Nutzers beim Login
 def authenticate(username: str, password: str) -> Optional[Tuple[int, str]]:
-    """Authentifiziert einen Benutzer anhand des Benutzernamens und des Passworts."""
     with get_db_session() as session:
         user = session.query(User).filter(User.username == username).first()
+        # Überprüfen, ob der Nutzer existiert und das Passwort korrekt ist
         if user and verify_password(password, user.hashed_password):
+            # Debugging
             print(f"User '{username}' erfolgreich authentifiziert.")
+            # Rückgabe der Nutzer-ID und des Nutzernamens
             return user.id, user.username
+        # Debugging
         print(f"Authentifizierung für Benutzer fehlgeschlagen'{username}'.")
         return None
 
-# --- Learning Type Management ---
+# Prüfe ob VARK Fragebogen bereits ausgefüllt wurde
 def get_learning_type_status(user_id: int) -> Tuple[Optional[str], bool]:
-    """Ermittelt den Lerntyp und den Abschlussstatus des Benutzers."""
     with get_db_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
         if user:
             return user.learning_type, bool(user.learning_type_completed)
         return None, False
 
-# --- Session Management ---
+# Protokolliert eine neue Benutzersitzung.
 def log_session(user_id: int) -> Optional[int]:
-    """Protokolliert eine neue Benutzersitzung."""
     with get_db_session() as session:
         new_session = UserSession(user_id=user_id, login_time=datetime.utcnow())
         session.add(new_session)
@@ -285,7 +281,6 @@ def log_session(user_id: int) -> Optional[int]:
 
 # --- Token Management ---
 def generate_auth_token(user_id: int) -> Optional[str]:
-    """Erzeugt und speichert ein neues Authentifizierungs-Token für einen Benutzer."""
     with get_db_session() as session:
         token = secrets.token_hex(32)
         expiry = datetime.utcnow() + timedelta(days=7)
@@ -550,12 +545,12 @@ def delete_study_task(task_id: int) -> bool:
         print(f"Studienaufgabe für ID nicht gefunden: {task_id}")
         return False
 
-# Initialize database tables if running as main script
+# Initialisierung der Datenbanktabellen wenn die Datei direkt ausgeführt wird
 if __name__ == "__main__":
+    # Debugging Statement
     print("Initialisiere Datenbank...")
     try:
         init_db()
-    except ValueError as e:
-        print(f"Konfigurations-Error: {e}")
     except Exception as e:
+        # Fehlermeldung, wenn die Datenbank nicht initialisiert werden kann
         print(f"Error beim Initialisieren der Datenbank: {e}")

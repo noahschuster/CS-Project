@@ -154,7 +154,7 @@ class Course(Base):
     __tablename__ = "courses"
     
     id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(String(100), unique=True, index=True)
+    course_id = Column(String(100), unique=True, index=True, nullable=False)
     meeting_code = Column(String(50))
     title = Column(String(255))
     description = Column(String)
@@ -167,6 +167,7 @@ class Course(Base):
     # Relationships
     language = relationship("Language", back_populates="courses")
     term = relationship("Term", back_populates="courses")
+    study_tasks = relationship("StudyTask", back_populates="course")
 
 # Languages als relationship (separate table) damit 3NF form eingehalten wird
 class Language(Base):
@@ -220,9 +221,7 @@ class StudyTask(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(String(100), nullable=False)
-    course_title = Column(String(255), nullable=False)
-    course_code = Column(String(50), nullable=False)
+    course_id = Column(String(100), ForeignKey("courses.course_id"), nullable=False)
     date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
     start_time = Column(String(5), nullable=False)  # Format: HH:MM
     end_time = Column(String(5), nullable=False)    # Format: HH:MM
@@ -231,6 +230,8 @@ class StudyTask(Base):
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationship to Course table to fetch title and code
+    course = relationship("Course", back_populates="study_tasks")
 # Funktion zum Initialisieren der Datenbanktabellen
 def init_db():
     try:
@@ -493,19 +494,18 @@ def save_study_task(user_id: int, task_data: Dict[str, Any]) -> Optional[int]:
     """Speichert eine Studienaufgabe in der Datenbank."""
     with get_db_session() as session:
         # Convert methods list to JSON string
-        methods_json = json.dumps(task_data.get('methods', []))
+        methods_json = json.dumps(task_data.get("methods", []))
         
         new_task = StudyTask(
             user_id=user_id,
-            course_id=task_data.get('course_id'),
-            course_title=task_data.get('course_title', ''),
-            course_code=task_data.get('course_code', ''),
-            date=task_data.get('date'),
-            start_time=task_data.get('start_time'),
-            end_time=task_data.get('end_time'),
-            topic=task_data.get('topic'),
+            course_id=task_data.get("course_id"),
+            # course_title and course_code are removed, will be fetched via relationship
+            date=task_data.get("date"),
+            start_time=task_data.get("start_time"),
+            end_time=task_data.get("end_time"),
+            topic=task_data.get("topic"),
             methods=methods_json,
-            completed=False
+            completed=task_data.get("completed", False) # Retain completed field if passed
         )
         
         session.add(new_task)
@@ -514,29 +514,35 @@ def save_study_task(user_id: int, task_data: Dict[str, Any]) -> Optional[int]:
         return new_task.id
 
 def get_study_tasks(user_id: int) -> List[Dict[str, Any]]:
-    """Ruft alle Lernaufgaben für einen Benutzer ab."""
+    """Ruft alle Lernaufgaben für einen Benutzer ab, inklusive Kursdetails."""
     with get_db_session() as session:
-        tasks = session.query(StudyTask).filter(
+        tasks_with_course_info = session.query(
+            StudyTask,
+            Course.title.label("course_title"),
+            Course.meeting_code.label("course_code")
+        ).join(
+            Course, StudyTask.course_id == Course.course_id
+        ).filter(
             StudyTask.user_id == user_id
         ).all()
         
-        return [
-            {
-                'id': task.id,
-                'user_id': task.user_id,
-                'course_id': task.course_id,
-                'course_title': task.course_title,
-                'course_code': task.course_code,
-                'date': task.date,
-                'start_time': task.start_time,
-                'end_time': task.end_time,
-                'topic': task.topic,
-                'methods': json.loads(task.methods),
-                'completed': task.completed,
-                'created_at': task.created_at
-            }
-            for task in tasks
-        ]
+        result_list = []
+        for task, course_title, course_code in tasks_with_course_info:
+            result_list.append({
+                "id": task.id,
+                "user_id": task.user_id,
+                "course_id": task.course_id,
+                "course_title": course_title,  # Fetched via join
+                "course_code": course_code,    # Fetched via join
+                "date": task.date,
+                "start_time": task.start_time,
+                "end_time": task.end_time,
+                "topic": task.topic,
+                "methods": json.loads(task.methods) if task.methods else [], # Ensure methods is a list
+                "completed": task.completed,
+                "created_at": task.created_at
+            })
+        return result_list
 
 def update_study_task(task_id: int, update_data: Dict[str, Any]) -> bool:
     """Aktualisiert eine bestehende Studienaufgabe."""

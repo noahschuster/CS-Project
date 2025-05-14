@@ -71,7 +71,7 @@ class Course(Base):
     __tablename__ = "courses"
     
     id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(String(100), unique=True, index=True)
+    course_id = Column(String(100), unique=True, index=True, nullable=False) # Made nullable=False for consistency
     meeting_code = Column(String(50))
     title = Column(String(255))
     description = Column(String)
@@ -84,6 +84,9 @@ class Course(Base):
     # Relationships
     language = relationship("Language", back_populates="courses")
     term = relationship("Term", back_populates="courses")
+    # Relationship to StudyTask (one-to-many)
+    study_tasks = relationship("StudyTask", back_populates="course")
+
 
 # Languages als relationship (separate table) damit 3NF form eingehalten wird
 class Language(Base):
@@ -111,7 +114,7 @@ class UserCourse(Base):
     __tablename__ = "user_courses"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(String(100), nullable=False)
+    course_id = Column(String(100), ForeignKey("courses.course_id"), nullable=False) # Added ForeignKey
     selected_at = Column(DateTime, default=datetime.utcnow)
 
 class CalendarEvent(Base):
@@ -131,9 +134,7 @@ class StudyTask(Base):
     __tablename__ = "study_tasks"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(String(100), nullable=False)
-    course_title = Column(String(255), nullable=False)
-    course_code = Column(String(50), nullable=False)
+    course_id = Column(String(100), ForeignKey("courses.course_id"), nullable=False)
     date = Column(String(10), nullable=False)  # Format: YYYY-MM-DD
     start_time = Column(String(5), nullable=False)  # Format: HH:MM
     end_time = Column(String(5), nullable=False)    # Format: HH:MM
@@ -141,6 +142,10 @@ class StudyTask(Base):
     methods = Column(String(1000), nullable=False)  # JSON-string of learning methods
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship to Course table to fetch title and code
+    course = relationship("Course", back_populates="study_tasks")
+
 
 # Erstelle alle Tabellen in der Datenbank
 Base.metadata.create_all(bind=engine)
@@ -154,3 +159,4 @@ print(f"Speicherort: {DB_PATH}")
 
 # Aktualisiere die database_manager.py Datei, um die lokale Datenbank zu verwenden
 print("\nWichtig: Stelle sicher, dass in deiner database_manager.py die Variable OFFLINE_MODE auf True gesetzt ist.")
+

@@ -15,6 +15,7 @@ from dashboard_charts import (
 # Konstanten
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
+# because some dependencies like steamlit_cookie_manager use the old version called st.cache we have to replace it with the newer function cache_data else we get an error (got this fix from the streamlit discussino forum)
 if hasattr(st, "cache"):
     st.cache = st.cache_data
 

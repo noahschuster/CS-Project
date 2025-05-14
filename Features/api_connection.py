@@ -4,7 +4,7 @@ import requests
 import json
 from database_manager import SessionLocal, Course, UserCourse, CourseSchedule  
 
-# HSG API Konfiguration (Schlüssel usw. sind in der .env)
+# HSG API Konfiguration
 API_APPLICATION_ID = "587acf1c-24d0-4801-afda-c98f081c4678"
 API_VERSION = "1"
 API_BASE_URL = "https://integration.preprod.unisg.ch"

@@ -364,7 +364,6 @@ def validate_session_token(token: str) -> Optional[Tuple[int, str]]:
 
 # Löscht ein Authentifizierungstoken aus der Datenbank
 def delete_session_token(token: str) -> bool:
-    """Löscht ein bestimmtes Sitzungs-Token aus der Datenbank."""
     with get_db_session() as session:
         deleted_count = session.query(SessionToken).filter(
             SessionToken.token == token

@@ -317,22 +317,6 @@ def generate_auth_token(user_id: int) -> Optional[str]:
         print(f"Für die Benutzer-ID generiertes Auth-Token: {user_id}")
         return token
 
-def validate_auth_token(token: str) -> Optional[Tuple[int, str]]:
-    """Validiert ein Authentifizierungs-Token und gibt bei Gültigkeit Benutzerinformationen zurück."""
-    with get_db_session() as session:
-        auth_token = session.query(AuthToken).filter(AuthToken.token == token).first()
-        if not auth_token or auth_token.expires_at <= datetime.utcnow():
-            print(f"Auth-Token ungültig oder abgelaufen")
-            return None
-            
-        user = session.query(User).filter(User.id == auth_token.user_id).first()
-        if not user:
-            print(f"Benutzer für Token nicht gefunden")
-            return None
-            
-        print(f"Auth-Token für Benutzer-ID validiert: {user.id}")
-        return user.id, user.username
-
 def generate_session_token(user_id: int, days_valid: int = 30) -> Optional[str]:
     """Erzeugt und speichert ein neues persistentes Sitzungs-Token für einen Benutzer."""
     with get_db_session() as session:

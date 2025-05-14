@@ -22,34 +22,33 @@ if hasattr(st, "cache"):
 
 # prüfe ob Nutzer eingeloggt ist
 def check_login():
-    """Überprüft den Status der Benutzeranmeldung"""
     if not st.session_state.get("logged_in", False):
         st.warning("Bitte melden Sie sich an, um auf das Dashboard zuzugreifen.")
         st.stop()
     return st.session_state.get("user_id"), st.session_state.get("username")
 
+# nutzer abmelden
 def logout_user(cookies):
-    """Erledigt die Benutzerabmeldung"""
-    # Get session token from cookie
+    # holt session token aus cookies
     session_token = cookies.get(SESSION_COOKIE_NAME)
 
-    # Delete token from database if exists
+    # löscht token von datenbank wenn existiert
     if session_token:
         delete_session_token(session_token)
 
-    # Delete the cookie from browser
+    # löscht cookie vom browser
     if session_token:
         try:
             del cookies[SESSION_COOKIE_NAME]
             cookies.save()
         except KeyError:
-            pass  # Cookie may already be removed
+            pass  # pass, weil es sein kann, dass Cookie schon entfernt wurde / nicht existiert
 
-    # Clear Streamlit session state
+    # Streamlit session state löschen
     for key in list(st.session_state.keys()):
         del st.session_state[key]
 
-    # Reset minimal session state
+    # minimal Session state zurücksetzen
     st.session_state.update({
         "logged_in": False,
         "username": None,
@@ -58,13 +57,13 @@ def logout_user(cookies):
         "learning_type_completed": False
     })
 
-    # Clear URL parameters
+    # URL parameter löschen
     try:
         st.query_params.clear()
     except Exception:
         pass
 
-    # Force page reload
+    # page reload erzwingen
     components.html(
         """
         <script>window.parent.location.reload();</script>
@@ -75,36 +74,32 @@ def logout_user(cookies):
 
     st.stop()
 
+# anzeigen anstehender Fristen
 def display_upcoming_deadlines(user_id):
-    """Anzeige anstehender Fristen mit effizienter Datenverarbeitung"""
-    # Get today's date
-    today = datetime.now().date()
+    today = datetime.now().date() # heutiges Datum
 
-    # Get events from database (cached)
-    events = get_calendar_events(user_id)
+    events = get_calendar_events(user_id) # kalender events holen
 
-    # Define deadline types
-    deadline_types = ["Aufgabe fällig", "Prüfung", "Projekt fällig"]
+    deadline_types = ["Aufgabe fällig", "Prüfung", "Projekt fällig"] # deadline arten definieren
 
-    # Filter and sort deadlines in one pass
     upcoming_deadlines = []
 
     for event in events:
-        # Check if it's a deadline
-        if not (event.get('is_deadline', False) or event.get('type') in deadline_types):
+        # überspringe non deadline events
+        if not (event.get('is_deadline') or event.get('type') in deadline_types):
             continue
-
-        # Parse date once
-        try:
-            deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
-
-            # Check date range
-            if today <= deadline_date <= today + timedelta(days=14):
-                # Add days_left calculation here to avoid recomputing later
-                event['days_left'] = (deadline_date - today).days
-                upcoming_deadlines.append(event)
-        except (ValueError, TypeError):
-            continue  # Skip invalid dates
+            
+        # überspringe events ohne datum
+        if not isinstance(event.get('date'), str):
+            continue
+            
+        deadline_date = datetime.strptime(event['date'], "%Y-%m-%d").date()
+        days_left = (deadline_date - today).days
+        
+        # Only add events in the next 14 days
+        if 0 <= days_left <= 14:
+            event['days_left'] = days_left
+            upcoming_deadlines.append(event)
 
     # Sort by date
     upcoming_deadlines.sort(key=lambda e: e.get('days_left', 14))

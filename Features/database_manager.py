@@ -9,6 +9,7 @@ from typing import Optional, Tuple, List, Dict, Any
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import relationship
 
 
 # Mit der folgenden Zeile kann der Offline Modus aktiviert werden. 
@@ -156,13 +157,37 @@ class Course(Base):
     meeting_code = Column(String(50))
     title = Column(String(255))
     description = Column(String)
-    language_id = Column(Integer)
+    language_id = Column(Integer, ForeignKey("languages.id"))
     max_credits = Column(String)
-    term_id = Column(String(50))
-    term_name = Column(String(100))
-    term_description = Column(String(255))
+    term_id = Column(String(50), ForeignKey("terms.term_id"))
     link_course_info = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    language = relationship("Language", back_populates="courses")
+    term = relationship("Term", back_populates="courses")
+
+# Languages als relationship (separate table) damit 3NF form eingehalten wird
+class Language(Base):
+    __tablename__ = "languages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    language_name = Column(String(100))
+    language_code = Column(String(20))
+    
+    # Relationship
+    courses = relationship("Course", back_populates="language")
+
+# Terms als relationship (separate table) damit 3NF form eingehalten wird
+class Term(Base):
+    __tablename__ = "terms"
+    
+    term_id = Column(String(50), primary_key=True, index=True)
+    term_name = Column(String(100))
+    term_description = Column(String(255))
+    
+    # Relationship
+    courses = relationship("Course", back_populates="term")
 
 # Speicherung der Kurse, die ein Nutzer ausgewählt hat
 class UserCourse(Base):

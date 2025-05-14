@@ -3,7 +3,7 @@ from datetime import datetime
 import streamlit.components.v1 as components
 
 # Import unserer Module
-from api_connection import get_user_courses
+from courses import get_user_courses
 from learning_type import get_user_learning_type
 from database_manager import get_user_sessions
 from database_manager import delete_session_token, get_calendar_events
@@ -220,7 +220,7 @@ def main(cookies):
         pages = {
             "Dashboard": display_dashboard,
             "Kalender": "calendar_study.display_calendar",
-            "Kurse": "api_connection.display_hsg_api_page",
+            "Kurse": "courses.display_hsg_api_page",
             "Lern-Tips": "learning_tipps.display_learning_tips",
             "Lern-Empfehlungen": "learning_suggestions.display_learning_suggestions",
             "Prokrastinations-Risiko": "procrastination_risk.run_procrastination_questionnaire" # MODIFIED HERE

@@ -21,7 +21,7 @@ from database_manager import (
     delete_study_task
 )
 # Import der Funktion zur Abfrage der Kurse des Nutzers
-from api_connection import get_user_courses
+from Features.courses import get_user_courses
 
 # Laden der Umgebungsvariablen aus der .env-Datei
 from dotenv import load_dotenv

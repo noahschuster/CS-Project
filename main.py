@@ -21,8 +21,12 @@ from streamlit_cookies_manager import EncryptedCookieManager
 import sys
 import subprocess
 
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, "Features"))
+
 # Import unserer Module
-from database_manager import (
+from Features.database_manager import (
     authenticate,
     add_user,
     log_session,
@@ -32,10 +36,10 @@ from database_manager import (
     SessionLocal,
     User
 )
-import dashboard
+import Features.dashboard as dashboard
 
 # Pfad zur Datenbankdatei
-db_path = 'local_database.db'
+db_path = 'Features/local_database.db'
 
 # Prüfe ob eine lokale Datenbankdatei existiert
 if not os.path.exists(db_path):
@@ -43,7 +47,7 @@ if not os.path.exists(db_path):
     
     # Erstelle die Datenbankdatei, wenn sie nicht existiert
     # Nutze db.py, um die Datenbank zu zu erstellen
-    subprocess.run([sys.executable, 'db.py'], check=True)
+    subprocess.run([sys.executable, 'Features/db.py'], check=True)
     print(f"Database Datei {db_path} erfolgreich erstellt.")
 
 else:

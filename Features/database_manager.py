@@ -24,7 +24,7 @@ load_dotenv()
 def get_db_engine():
     if OFFLINE_MODE:
         # SQLite für Offline-Modus
-        SQLALCHEMY_DATABASE_URL = "sqlite:///./local_database.db"
+        SQLALCHEMY_DATABASE_URL = "sqlite:///./Features/local_database.db"
         engine = create_engine(
             SQLALCHEMY_DATABASE_URL, 
             connect_args={"check_same_thread": False}

@@ -1,3 +1,5 @@
+<span style="color:red">*Dislaimer: Please use App only in light mode*</span>
+
 # StudyBuddy
 
 **StudyBuddy** ist eine intelligente Lernmanagement-Anwendung, entwickelt zur Unterstützung von Studierenden bei der Organisation ihres Lernalltags. Durch den Einsatz von **Künstlicher Intelligenz** und **maschinellem Lernen** hilft die App, personalisierte Lernempfehlungen zu erstellen und Prokrastination frühzeitig zu erkennen.

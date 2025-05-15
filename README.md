@@ -1,115 +1,136 @@
-# StudyBuddy
+# 📚 StudyBuddy
 
-## Überblick
+**StudyBuddy** ist eine intelligente Lernmanagement-Anwendung, entwickelt zur Unterstützung von Studierenden bei der Organisation ihres Lernalltags. Durch den Einsatz von **Künstlicher Intelligenz** und **maschinellem Lernen** hilft die App, personalisierte Lernempfehlungen zu erstellen und Prokrastination frühzeitig zu erkennen.
 
-StudyBuddy ist eine umfassende Lernmanagement-Anwendung, entwickelt zur Unterstützung von Studierenden bei der Organisation ihres Lernalltags. Die Anwendung nutzt moderne Technologien wie maschinelles Lernen und KI, um personalisierte Lernempfehlungen zu generieren und Prokrastinationsrisiken zu identifizieren.
+---
 
-## Funktionen
+## 🚀 Funktionen
 
-- Personalisiertes Dashboard: Visualisierung von Lernaktivitäten und kommenden Fristen
-- Lerntyp-Analyse: Bestimmung des individuellen Lerntyps für optimierte Lernstrategien
-- Kalender-Integration: Synchronisation mit Google Calendar für effizientes Zeitmanagement
-- Kursverwaltung: Übersichtliche Verwaltung von Kursen
-- KI-gestützte Lernempfehlungen: Massgeschneiderte Lernpläne basierend auf Kursinhalten und Lerntyp
-- Prokrastinations-Risiko-Analyse: ML-basierte Einschätzung des persönlichen Prokrastinationsrisikos mit individuellen Gegenmassnahmen
+- **🎛️ Personalisiertes Dashboard**  
+  Übersicht über Lernaktivitäten und bevorstehende Fristen
+- **🧠 Lerntyp-Analyse**  
+  Ermittlung des individuellen Lerntyps für optimierte Lernstrategien
+- **📅 Kalender-Integration**  
+  Synchronisation mit Google Calendar für effizientes Zeitmanagement
+- **📚 Kursverwaltung**  
+  Zentrale Verwaltung aller Kurse und Inhalte
+- **🤖 KI-gestützte Lernempfehlungen**  
+  Dynamische Lernpläne basierend auf Kursinhalten und Lerntyp
+- **⏳ Prokrastinations-Risiko-Analyse**  
+  ML-gestützte Erkennung individueller Prokrastinationsmuster
 
-## Technische Architektur
+---
+
+## 🛠️ Technische Architektur
 
 ### Frontend
-- Streamlit: Interaktive Benutzeroberfläche mit reaktiven Komponenten
+- **Streamlit** – Interaktive Benutzeroberfläche
 
 ### Backend
-- Python 3.8+: Hauptprogrammiersprache
-- SQLite/Azure SQL: Datenbankmanagement (lokal/cloud-basiert)
-- scikit-learn: Framework für maschinelles Lernen
-- OpenAI API: KI-gestützte Inhaltsgeneration für Lernempfehlungen
+- **Python 3.8+** – Programmiersprache
+- **SQLite / Azure SQL** – Datenbankmanagement lokal oder in der Cloud
+- **scikit-learn** – Machine Learning Framework
+- **OpenAI API** – Generierung personalisierter Lernempfehlungen
 
 ### Externe APIs
-- Google Calendar API: Kalender-Synchronisation
-- OpenAI API: Generierung von personalisierten Lernplänen
-- HSG API: Kursinformationen und -materialien
+- **Google Calendar API** – Kalender-Synchronisation
+- **OpenAI API** – KI-gestützte Lernpläne
+- **HSG API** – Kursdaten und Materialien
 
 ### Datenbank
-Die Anwendung verwendet standardmässig eine lokale SQLite-Datenbank. Ursprünglich war eine Azure SQL-Datenbank für die Produktionsumgebung vorgesehen, jedoch werden die Azure-Dienste aufgrund aufgebrauchter Free Credits nicht mehr genutzt. Die Anwendung ist so konfiguriert, dass sie nahtlos zwischen lokaler und Cloud-Datenbank wechseln kann.
+Standardmäßig nutzt die Anwendung **SQLite** für lokale Datenhaltung. Eine Umschaltung auf **Azure SQL** ist vorbereitet, jedoch derzeit inaktiv aufgrund aufgebrauchter Azure-Guthaben. Die Konfiguration erfolgt über die Datei `.env`.
 
-## Ordnerstruktur
+---
 
+## 📂 Ordnerstruktur
+
+```
 CS-Project/
-├── .streamlit/             # Streamlit-Konfiguration
-├── Features/               # Kernfunktionalitäten
-│   ├── .env                # Umgebungsvariablen und API-Schlüssel
-│   ├── calendar_study.py   # Kalender-Funktionalität
-│   ├── courses.py          # Kursverwaltung
-│   ├── dashboard.py        # Dashboard-Hauptansicht
-│   ├── dashboard_charts.py # Diagramme und Visualisierungen
-│   ├── database_manager.py # Datenbankoperationen
-│   ├── db.py               # Datenbankinitialisierung
-│   ├── google_calendar_sync.py # Google Kalender-Integration
-│   ├── learning_suggestions.py # KI-gestützte Lernempfehlungen
-│   ├── learning_tipps.py   # Lernstrategien nach Lerntyp
-│   ├── learning_type.py    # Lerntyp-Analyse
-│   ├── local_database.db   # Lokale SQLite-Datenbank
-│   ├── procrastination_data.csv # Trainingsdaten für ML-Modell
-│   ├── procrastination_risk.py # Prokrastinations-Analyse
-│   ├── procrastination_risk_model.joblib # Trainiertes ML-Modell
-├── main.py                 # Anwendungseinstiegspunkt
-├── Procrastination_ML_Notebook_Realistic_App_Features.ipynb # ML-Modellentwicklung
-└── requirements.txt        # Abhängigkeiten
+├── .streamlit/                        # Streamlit-Konfiguration
+├── Features/                          # Kernfunktionalitäten
+│   ├── .env                           # Umgebungsvariablen
+│   ├── calendar_study.py               # Kalender-Integration
+│   ├── courses.py                      # Kursverwaltung
+│   ├── dashboard.py                    # Dashboard
+│   ├── dashboard_charts.py             # Visualisierungen
+│   ├── database_manager.py             # Datenbank-Management
+│   ├── db.py                           # Datenbank-Initialisierung
+│   ├── google_calendar_sync.py         # Google Calendar-Sync
+│   ├── learning_suggestions.py         # KI-Lernempfehlungen
+│   ├── learning_tipps.py                # Lerntyp-Tipps
+│   ├── learning_type.py                # Lerntyp-Analyse
+│   ├── local_database.db               # Lokale SQLite-Datenbank
+│   ├── procrastination_data.csv        # Trainingsdaten ML
+│   ├── procrastination_risk.py         # Prokrastinations-Analyse
+│   ├── procrastination_risk_model.joblib # Trainiertes Modell
+├── main.py                             # Anwendungseinstieg
+├── Procrastination_ML_Notebook_Realistic_App_Features.ipynb # ML-Dokumentation
+└── requirements.txt                    # Abhängigkeiten
+```
 
-## Installation und Ausführung
+---
+
+## ⚙️ Installation & Ausführung
 
 ### Installation
-1. Entpacken Sie die ZIP-Datei in ein Verzeichnis Ihrer Wahl
-2. Navigieren Sie zum Projektverzeichnis
-3. Installieren Sie die Abhängigkeiten:
+1. ZIP-Datei entpacken
+2. Ins Projektverzeichnis navigieren
+3. Abhängigkeiten installieren:
+   ```bash
    pip install -r requirements.txt
+   ```
 
-### Ausführung
-Starten Sie die Anwendung mit:
+### Starten der Anwendung
+```bash
 streamlit run main.py
+```
+Die Anwendung ist dann erreichbar unter:  
+[http://localhost:8501](http://localhost:8501)
 
-Die Anwendung ist anschliessend unter http://localhost:8501 erreichbar.
+---
 
-## Prokrastinations-Risiko-Modell
+## 🧠 Prokrastinations-Risiko-Modell
 
-Das integrierte maschinelle Lernmodell zur Prokrastinations-Risikoanalyse basiert auf einem Random Forest Classifier und berücksichtigt folgende Faktoren:
-
+### Grundlage:
+Ein **Random Forest Classifier** analysiert folgende Merkmale:
 - Studienjahr
 - Sozioökonomischer Hintergrund
-- Prüfungsvorbereitungsgewohnheiten
+- Prüfungsvorbereitung
 - Wöchentliche Lernstunden
-- Akademische Leistung (Notendurchschnitt)
-- Zeitmanagement-Praktiken
-- Digitale Ablenkungen (Smartphone-Nutzung)
-- Konzentrationsfähigkeit während des Lernens
+- Notendurchschnitt
+- Zeitmanagement
+- Digitale Ablenkungen (z.B. Smartphone-Nutzung)
+- Konzentrationsfähigkeit
 
-Das Modell klassifiziert das Prokrastinationsrisiko in drei Kategorien:
-- Niedriges Risiko (0): Effektives Zeitmanagement, geringe Prokrastinationsneigung
-- Mittleres Risiko (1): Gelegentliche Prokrastination mit moderaten Auswirkungen
-- Hohes Risiko (2): Häufige Prokrastination mit signifikanten Auswirkungen auf die Leistung
+### Risikostufen:
+- **0 - Niedrig**: Effektives Zeitmanagement, geringe Prokrastinationsneigung
+- **1 - Mittel**: Gelegentliche Prokrastination mit moderaten Auswirkungen
+- **2 - Hoch**: Häufige Prokrastination mit starker Leistungsbeeinträchtigung
 
-Die Modellentwicklung und -validierung ist im Jupyter Notebook "Procrastination_ML_Notebook_Realistic_App_Features.ipynb" dokumentiert.
+Die vollständige Modellentwicklung ist im Jupyter Notebook dokumentiert:  
+`Procrastination_ML_Notebook_Realistic_App_Features.ipynb`
 
-## Hinweis zu Azure
+---
 
-Die Anwendung wurde ursprünglich mit Azure SQL Database als Cloud-Datenbanklösung konzipiert. Aufgrund aufgebrauchter Azure Free Credits wurde die Anwendung auf lokale SQLite-Datenbanken umgestellt. Die Azure-Funktionalität bleibt im Code erhalten und kann bei Bedarf durch Konfiguration der entsprechenden Umgebungsvariablen in der ".env"-Datei reaktiviert werden.
+## ☁️ Hinweis zu Azure
 
-## Technologie
+Die Anwendung ist für **Azure SQL** vorbereitet, aktuell jedoch auf **SQLite** umgestellt. Die Reaktivierung von Azure ist jederzeit möglich, indem die **.env-Datei** entsprechend konfiguriert wird.
 
-- Frontend: Streamlit
-- Backend: Python
-- Datenbank: SQLite (lokal), Azure SQL (cloud)
-- ML/KI: 
-  - scikit-learn (Random Forest Classifier)
-  - OpenAI API (GPT-Modelle für Lernplangeneration)
-- Externe APIs:
-  - Google OAuth 2.0
-  - Google Calendar API
-  - OpenAI API
-- Datenvisualisierung:
-  - Matplotlib
-  - Plotly
+---
 
-## Hinweis
+## 🧑‍💻 Verwendete Technologien
 
-Die Anwendung speichert Benutzerdaten lokal und überträgt bei aktivierten externen Diensten nur die notwendigen Informationen. API-Schlüssel und Zugangsdaten werden in der ".env"-Datei gespeichert und nicht im Code hartcodiert.
+| Komponente        | Technologie                                    |
+|-------------------|------------------------------------------------|
+| **Frontend**      | Streamlit                                      |
+| **Backend**       | Python                                         |
+| **Datenbank**     | SQLite (lokal), Azure SQL (cloud)               |
+| **ML / KI**       | scikit-learn (Random Forest), OpenAI API (GPT)  |
+| **APIs**          | Google OAuth 2.0, Google Calendar, OpenAI API   |
+| **Visualisierung**| Matplotlib, Plotly                             |
+
+---
+
+## 🔒 Datenschutzhinweis
+
+Die Anwendung speichert **Benutzerdaten lokal**. Bei Nutzung externer Dienste (z.B. Google Calendar oder OpenAI) werden **nur notwendige Daten übertragen**. API-Schlüssel und Zugangsdaten sind in der `.env`-Datei hinterlegt und **nicht im Code sichtbar**.

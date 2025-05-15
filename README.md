@@ -10,9 +10,9 @@
 1. ZIP-Datei entpacken
 2. Ins Projektverzeichnis navigieren
 3. Abhängigkeiten installieren:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
 ### Starten der Anwendung
 ```bash

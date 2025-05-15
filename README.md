@@ -49,6 +49,7 @@ CS-Project/
 ├── .streamlit/                        # Streamlit-Konfiguration
 ├── Features/                          # Kernfunktionalitäten
 │   ├── .env                           # Umgebungsvariablen
+│   ├── .streamlit/                    # Streamlit-Konfiguration
 │   ├── calendar_study.py               # Kalender-Integration
 │   ├── courses.py                      # Kursverwaltung
 │   ├── dashboard.py                    # Dashboard

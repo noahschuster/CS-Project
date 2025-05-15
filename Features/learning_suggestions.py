@@ -548,8 +548,6 @@ def _generate_complete_study_plan(
 
         # Extrahiere Text aus dem PDF
         pdf_text = extract_text_from_pdf(pdf_path)
-        # Lösche die temporäre PDF-Datei
-        if os.path.exists(pdf_path): os.remove(pdf_path)
 
         # Überprüfe, ob Text extrahiert werden konnte
         if not pdf_text:

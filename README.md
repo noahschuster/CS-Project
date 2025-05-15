@@ -125,3 +125,9 @@ Die Anwendung ist für **Azure SQL** vorbereitet, aktuell jedoch auf **SQLite** 
 ## Hinweis zu Datenschutz
 
 Die Anwendung speichert **Benutzerdaten lokal**. Bei Nutzung externer Dienste (z.B. Google Calendar oder OpenAI) werden **nur notwendige Daten übertragen**. API-Schlüssel und Zugangsdaten sind in der `.env`-Datei hinterlegt und **nicht im Code sichtbar**.
+
+---
+
+## Literaturverzeichnis
+OpenAI. (2025). ChatGPT (Version vom 15.05.2025) [Large language model]. https://chat.openai.com/chat.
+VARK Learn Limited. (n.d.). The VARK Questionnaire (Version 7.8). https://www.uab.edu/students/academics/images/academic-success-center/vark-questionnaire.pdf

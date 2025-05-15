@@ -1,4 +1,4 @@
-<span style="color:red">*‼️Dislaimer: Please use App only in light mode*</span>
+<span style="color:red">*‼️ Dislaimer: Don't use dark mode when using app*</span>
 
 # StudyBuddy
 

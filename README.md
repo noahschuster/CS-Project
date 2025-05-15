@@ -13,6 +13,7 @@
 ```bash
 pip install -r requirements.txt
 ```
+4. In Light Modus wechseln (3 Punkte -> Settings -> wähle App Darstellung light ), falls Browser Dark Modus als Default hat.
 
 ### Starten der Anwendung
 ```bash

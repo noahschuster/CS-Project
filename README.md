@@ -1,4 +1,4 @@
-<span style="color:red">*‼️ Dislaimer: Don't open app in dark mode*</span>
+## <span style="color:red">*‼️ Disclaimer: Don't open app in dark mode*</span>
 
 # StudyBuddy
 

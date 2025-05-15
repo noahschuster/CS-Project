@@ -6,15 +6,6 @@ st.set_page_config(
     page_icon="📚",
     layout="centered")
 
-# Alle Python-Warnungen unterdrücken
-import warnings
-warnings.filterwarnings("ignore")
-
-# Streamlit-Logging auf ERROR-Level setzen (unterdrückt Warnungen)
-import logging
-logging.getLogger("streamlit").setLevel(logging.ERROR)
-logging.getLogger("root").setLevel(logging.ERROR)
-
 # Importiere benötigte Bibliotheken
 import os
 from streamlit_cookies_manager import EncryptedCookieManager

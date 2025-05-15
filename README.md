@@ -129,5 +129,5 @@ Die Anwendung speichert **Benutzerdaten lokal**. Bei Nutzung externer Dienste (z
 ---
 
 ## Literaturverzeichnis
-OpenAI. (2025). ChatGPT (Version vom 15.05.2025) [Large language model]. https://chat.openai.com/chat.
+OpenAI. (2025). ChatGPT (Version vom 15.05.2025) [Large language model]. https://chat.openai.com/chat. <br>
 VARK Learn Limited. (n.d.). The VARK Questionnaire (Version 7.8). https://www.uab.edu/students/academics/images/academic-success-center/vark-questionnaire.pdf

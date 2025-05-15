@@ -5,7 +5,7 @@ from datetime import datetime
 from database_manager import get_calendar_events, save_calendar_event, delete_calendar_event
 from google_calendar_sync import display_google_calendar_sync, check_auto_sync
 
-## Zum Styling der folgenden Datei haben wir mit ChatGPT experimentiert und mal geschaut was mit CSS alles so möglich ist.
+## Zum Styling der folgenden Datei haben wir mit ChatGPT (OpenAI, 2025) experimentiert und mal geschaut was mit CSS alles so möglich ist.
 # Streamlit Frontend
 def display_calendar(user_id):
     st.title("Studienkalender")
@@ -52,14 +52,14 @@ def display_calendar(user_id):
         # Kalender erstellen
         cal = calendar.monthcalendar(st.session_state.calendar_year, st.session_state.calendar_month)
         
-        # Custom CSS Styling für Kalender. Übernommen aus ChatGPT
+        # Custom CSS Styling für Kalender. Übernommen aus ChatGPT (OpenAI, 2025)
         weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         cols = st.columns(7)
         for i, col in enumerate(cols):
             with col:
                 st.markdown(f"<div style='text-align: center; font-weight: bold;'>{weekdays[i]}</div>", unsafe_allow_html=True)
         
-        # Design Elemente und Hover Effekte für unseren Kalender von ChatGPT kopiert
+        # Design Elemente und Hover Effekte für unseren Kalender von ChatGPT kopiert (OpenAI, 2025)
         st.markdown("""
         <style>
         .day-cell {
@@ -133,7 +133,7 @@ def display_calendar(user_id):
             for i, day in enumerate(week):
                 with cols[i]:
                     if day == 0:
-                        # Leere Zeile für Tage, die nicht im Monat sind. Übernommen von ChatGPT
+                        # Leere Zeile für Tage, die nicht im Monat sind. Übernommen von ChatGPT (OpenAI, 2025)
                         st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
                     else:
                         # Datum erstellen
@@ -143,15 +143,15 @@ def display_calendar(user_id):
                         # Prüfen ob es Einträge für diesen Tag gibt
                         day_events = [e for e in st.session_state.calendar_events if e['date'] == date_str]
                         
-                        # HTML für den Tag erstellen, übernommen von ChatGPT
+                        # HTML für den Tag erstellen, übernommen von ChatGPT (OpenAI, 2025)
                         html = f'<div class="day-cell{" day-cell-events" if day_events else ""}">'
                         html += f'<div class="day-number">{day}</div>'
                         
-                        # Container für jedes Event und Overflow verhidnern, übernommen von ChatGPT
+                        # Container für jedes Event und Overflow verhidnern, übernommen von ChatGPT (OpenAI, 2025)
                         if day_events:
                             html += '<div class="events-container">'
                             
-                            # Preview hinzufügen, aus ChatGPT übernommen
+                            # Preview hinzufügen, aus ChatGPT (OpenAI, 2025) übernommen
                             for event in day_events:
                                 html += f'<div class="event-mini" style="background-color: {event["color"]};">'
                                 html += f'{event["time"]} {event["title"][:10]}...'
@@ -159,7 +159,7 @@ def display_calendar(user_id):
                             
                             html += '</div>'
                             
-                            # Inhalt hinzufügen, der beim Hover angezeigt wird, aus ChatGPT übernommen
+                            # Inhalt hinzufügen, der beim Hover angezeigt wird, aus ChatGPT (OpenAI, 2025) übernommen
                             html += '<hr style="margin: 3px 0;">'
                             for event in day_events:
                                 html += f'<div class="event-full" style="background-color: {event["color"]};">'
@@ -253,7 +253,7 @@ def display_calendar(user_id):
                         for i, event in enumerate(events_by_date[date]):
                             col1, col2 = st.columns([5, 1])
                             with col1:
-                                # styling von Chatgpt übernommen
+                                # styling von Chatgpt (OpenAI, 2025) übernommen
                                 st.markdown(
                                     f"""<div style='background-color: {event['color']}; padding: 10px;
                                      border-radius: 5px; margin-bottom: 5px;'>

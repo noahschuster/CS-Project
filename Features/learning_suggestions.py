@@ -119,6 +119,9 @@ def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
         return None
 
 # Funktion zum Parsen von Kursdetails aus dem extrahierten PDF-Text
+# Hierfür wurde ChatGPT (OpenAI, 2025) verwendet, um die Funktion zu konstruieren
+# Diese Funktion extrahiert ECTS-Punkte und Kursinhalte aus dem Text
+# und gibt sie in einem Dictionary zurück
 def parse_course_details_from_text(text: str, course_title: str) -> Dict[str, Any]:
     # Initialisiere das Ergebnis-Dictionary mit Standardwerten
     details = {"ects": None, "content_summary": f"General information for {course_title}"}
@@ -423,6 +426,7 @@ WICHTIG: Halte jede Aktivität KURZ (maximal 100 Zeichen), aber dennoch spezifis
                 plan_data = None
                 
                 # Verarbeite die JSON-Antwort je nach Struktur
+                # Um die komplizierte JSON-Antwort in Python zu verarbeiten nutzten wir ChatGPT (OpenAI, 2025)
                 if isinstance(parsed_json, list):
                     # Fallback für String-Items in der Liste
                     for i, item in enumerate(parsed_json):
@@ -510,6 +514,7 @@ WICHTIG: Halte jede Aktivität KURZ (maximal 100 Zeichen), aber dennoch spezifis
         return None
 
 # Generiert einen vollständigen Studienplan für mehrere Kurse über mehrere Wochen
+# Diese Funktion wurde mithilfe von ChatGPT (OpenAI, 2025) konstruiert, da es besonders komplex war, die Informationen in einen Studienplan zu integrieren
 def _generate_complete_study_plan(
     user_id: str,
     selected_courses_info: List[Dict[str, Any]],
@@ -958,6 +963,7 @@ def display_study_tasks(user_id: str) -> None:
                             st.rerun()
             
             # Aufgabendetails
+            # Hierfür wurde ChatGPT (OpenAI, 2025) verwendet, um die Informationen in einem ansprechenden Format darzustellen
             with col2:
                 # Erstelle den Header-Text für den Expander
                 task_header = f"{ai_marker} {task.get('date', 'Kein Datum')} | {task.get('start_time', '')} - {task.get('end_time', '')} | {task.get('course_code', 'N/A')}"

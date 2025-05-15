@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 
+# Es gab Probleme mit der Synchronisation von Events mit der Google Calendar API
+# Hierfür wurde ChatGPT (OpenAI, 2025) verwendet, um Error-Handling und konsistentere Funktionen zu implementieren
+
 # Importiere die benötigten Bibliotheken für Google Calendar API
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -73,7 +76,7 @@ def reset_credentials():
     if 'google_credentials' in st.session_state:
         del st.session_state.google_credentials
     return True
-#  Authentifiziert mit Google Calendar API und gibt Credentials zurück.
+# Authentifiziert mit Google Calendar API und gibt Credentials zurück.
 # Verwendet Credentials aus dem Streamlit Session State.
 def get_google_credentials():
     creds = None

@@ -4,6 +4,9 @@ import requests
 import json
 from database_manager import SessionLocal, Course, UserCourse, CourseSchedule, Term, Language
 
+# Aufgrund der Tatsache dass die HSG API manchmal nicht erreichbar war, mussten wir ein Error-Handling implementieren. 
+# Hierfür nutzten wir ChatGPT um möglichst effiziente Errorschleifen einzubauen (OpenAI, 2025).
+
 # HSG API Konfiguration
 API_APPLICATION_ID = "587acf1c-24d0-4801-afda-c98f081c4678"
 API_VERSION = "1"
@@ -251,6 +254,7 @@ def fetch_and_store_courses():
     finally:
         # datenbankverbindung immer schließen
         db_session.close()
+
 # speichert die kurszeiten in der datenbank
 def store_course_schedule(db_session, course_id, course_dates_api):
     if not course_dates_api:
@@ -409,7 +413,8 @@ def display_hsg_api_page(user_id):
                     course_container = st.container()
                     submit_button_placeholder = st.empty()
                     
-                    # scrollbarer container für kursliste
+                    # scrollbarer container für kursliste 
+                    # hierfür wurde ChatGPT verwendet (OpenAI, 2025)
                     with course_container:
                         st.markdown("""
                         <style>
@@ -483,7 +488,7 @@ def display_hsg_api_page(user_id):
                         else:
                             st.write("Kein Zeitplan für diesen Kurs hinterlegt.")
     except Exception as e:
-        # fehlerbehandlung
+        # fehlerbehandlung mit ChatGPT (OpenAI, 2025)
         st.error(f"Ein Fehler ist aufgetreten: {e}")
     finally:
         # Datenbankverbindung  schließen

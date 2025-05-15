@@ -15,7 +15,9 @@ from dashboard_charts import (
 # Konstanten
 SESSION_COOKIE_NAME = "studybuddy_session_token"
 
-# manche dependencies (e.g., streamlit_cookie_manager) nutzen die alte Version st.cache aber streamlit hat diese Funktion durch cache_data oder cache_resource ersetzt, da wir die libraries nicht überschreiben können ersetzen wir st.cache hiermit (wir haben diese Lösung im Streamlit Discussion Forum gefunden)
+# manche dependencies (e.g., streamlit_cookie_manager) nutzen die alte Version st.cache aber streamlit hat diese Funktion durch cache_data oder cache_resource ersetzt, 
+# da wir die libraries nicht überschreiben können ersetzen wir st.cache hiermit (wir haben diese Lösung im Streamlit Discussion Forum gefunden)
+# Hierfür wurde ChatGPT (OpenAI, 2025) befragt, jedoch konnte keine zuverlässige Lösung gefunden werden.
 if hasattr(st, "cache"):
     st.cache = st.cache_data
 
@@ -63,6 +65,8 @@ def logout_user(cookies):
         pass
 
     # page reload erzwingen
+    # hierbei gab es probleme mit st.rerun(), deshalb nutzten wir ChatGPT (OpenAI, 2025) um eine alternative Lösung zu finden
+    # die Lösung war, ein HTML-Snippet zu verwenden, um die Seite neu zu laden
     components.html(
         """
         <script>window.parent.location.reload();</script>
@@ -125,7 +129,7 @@ def display_upcoming_deadlines(user_id):
             else:
                 days_text = f"In {days_left} Tagen"
             
-            # Custom Styling
+            # Custom Styling mithilfe von ChatGPT (OpenAI, 2025)
             st.markdown(
                 f"""<div style='background-color: {deadline['color']}; padding: 8px;
                  border-radius: 5px; margin-bottom: 5px;'>

@@ -94,7 +94,7 @@ def get_db_session():
     finally:
         session.close()
 
-# Definition der einzlen Tabellen in unserer Datenbank
+# Definition der einzelnen Tabellen in unserer Datenbank
 # Nutzer und seine Daten. Vor allem für die Authentifizierung wichtig
 class User(Base):
     __tablename__ = "users"
@@ -163,7 +163,7 @@ class Course(Base):
     link_course_info = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relationships
+    # Relationships damit in 3NF Form
     language = relationship("Language", back_populates="courses")
     term = relationship("Term", back_populates="courses")
     study_tasks = relationship("StudyTask", back_populates="course")
@@ -229,8 +229,8 @@ class StudyTask(Base):
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship to Course table to fetch title and code
     course = relationship("Course", back_populates="study_tasks")
+
 # Funktion zum Initialisieren der Datenbanktabellen
 def init_db():
     try:
@@ -240,6 +240,7 @@ def init_db():
         print(f"Bei der Erstellung der Tabelle ist ein Fehler aufgetreten: {e}")
 
 # Verschlüsselung der Passwörter
+# Hierfür wurde ChatGPT (OpenAI, 2025) zur Hilfe genommen
 def hash_password(password: str) -> str:
     pwd_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()

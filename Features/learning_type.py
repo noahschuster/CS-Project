@@ -20,8 +20,7 @@ def get_user_learning_type(user_id):
         user = session.query(User).filter(User.id == user_id).first()
         return user.learning_type if user else None
 
-# Wir haben hier das VARK Framework implementiert, um den Lerntyp zu bestimmen.
-# Quelle:
+# Wir haben hier das VARK Framework implementiert, um den Lerntyp zu bestimmen (VARK Learn Limited, o. J.)
 # https://www.uab.edu/students/academics/images/academic-success-center/vark-questionnaire.pdf#:~:text=The%20VARK%20Questionnaire%20%28Version%207,You%20would   
 
 # VARK Scoring Tabelle

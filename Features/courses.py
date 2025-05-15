@@ -452,6 +452,16 @@ def display_hsg_api_page(user_id):
                     st.info("Du hast noch keine Kurse ausgewählt. Gehe zum 'Kurse auswählen'-Tab, um Kurse hinzuzufügen.")
                 else:
                     st.write(f"Du hast {len(user_selected_courses_details)} Kurse ausgewählt:")
+
+                # Button zum Synchronisieren der Kurstermine mit dem Kalender
+                if st.button("Kurstermine mit Kalender synchronisieren"):
+                    with st.spinner("Synchronisiere Kurstermine mit dem Kalender..."):
+                        added_events = sync_course_schedule_to_calendar(user_id)
+                        if added_events > 0:
+                            st.success(f"{added_events} Kurstermine wurden erfolgreich zum Kalender hinzugefügt!")
+                        else:
+                            st.info("Es wurden keine neuen Kurstermine zum Kalender hinzugefügt. Möglicherweise sind alle Termine bereits synchronisiert.")
+
                     # jeden kurs als expander anzeigen
                     for course_detail in user_selected_courses_details:
                         expander_label = f"{course_detail['meeting_code']} - {course_detail['title']}"

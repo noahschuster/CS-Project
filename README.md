@@ -1,33 +1,55 @@
-# 📚 StudyBuddy
+## <span style="color:red">*‼️ Disclaimer: Don't open app in dark mode*</span>
+
+# StudyBuddy
 
 **StudyBuddy** ist eine intelligente Lernmanagement-Anwendung, entwickelt zur Unterstützung von Studierenden bei der Organisation ihres Lernalltags. Durch den Einsatz von **Künstlicher Intelligenz** und **maschinellem Lernen** hilft die App, personalisierte Lernempfehlungen zu erstellen und Prokrastination frühzeitig zu erkennen.
 
 ---
 
-## 🚀 Funktionen
+## Installation & Ausführung
 
-- **🎛️ Personalisiertes Dashboard**  
+### Installation
+1. ZIP-Datei entpacken
+2. Ins Projektverzeichnis navigieren
+3. Abhängigkeiten installieren:
+```bash
+pip install -r requirements.txt
+```
+4. In Light Modus wechseln (3 Punkte -> Settings -> wähle App Darstellung light ), falls Browser Dark Modus als Default hat.
+
+### Starten der Anwendung
+```bash
+streamlit run main.py
+```
+Die Anwendung ist dann erreichbar unter:  
+[http://localhost:8501]
+
+---
+
+## Funktionen
+
+- **Personalisiertes Dashboard**  
   Übersicht über Lernaktivitäten und bevorstehende Fristen
-- **🧠 Lerntyp-Analyse**  
+- **Lerntyp-Analyse**  
   Ermittlung des individuellen Lerntyps für optimierte Lernstrategien
-- **📅 Kalender-Integration**  
+- **Kalender-Integration**  
   Synchronisation mit Google Calendar für effizientes Zeitmanagement
-- **📚 Kursverwaltung**  
-  Zentrale Verwaltung aller Kurse und Inhalte
-- **🤖 KI-gestützte Lernempfehlungen**  
+- **Kursverwaltung**  
+  Zentrale Verwaltung aller Kurse
+- **KI-gestützte Lernempfehlungen**  
   Dynamische Lernpläne basierend auf Kursinhalten und Lerntyp
-- **⏳ Prokrastinations-Risiko-Analyse**  
+- **Prokrastinations-Risiko-Analyse**  
   ML-gestützte Erkennung individueller Prokrastinationsmuster
 
 ---
 
-## 🛠️ Technische Architektur
+## Technische Architektur
 
 ### Frontend
 - **Streamlit** – Interaktive Benutzeroberfläche
 
 ### Backend
-- **Python 3.8+** – Programmiersprache
+- **Python** – Programmiersprache
 - **SQLite / Azure SQL** – Datenbankmanagement lokal oder in der Cloud
 - **scikit-learn** – Machine Learning Framework
 - **OpenAI API** – Generierung personalisierter Lernempfehlungen
@@ -35,21 +57,21 @@
 ### Externe APIs
 - **Google Calendar API** – Kalender-Synchronisation
 - **OpenAI API** – KI-gestützte Lernpläne
-- **HSG API** – Kursdaten und Materialien
+- **HSG API** – Kursdaten und Kursmerkblätter
 
 ### Datenbank
-Standardmäßig nutzt die Anwendung **SQLite** für lokale Datenhaltung. Eine Umschaltung auf **Azure SQL** ist vorbereitet, jedoch derzeit inaktiv aufgrund aufgebrauchter Azure-Guthaben. Die Konfiguration erfolgt über die Datei `.env`.
+Standardmäßig nutzt die Anwendung **SQLite** als lokale Datenbank. Eine Umschaltung auf die Cloud basierte Lösung **Azure SQL** ist in der database_manager.py Datei möglich. Die Konfiguration erfolgt über die Datei `.env`.
 
 ---
 
-## 📂 Ordnerstruktur
+## Ordnerstruktur
 
 ```
 CS-Project/
-├── .streamlit/                        # Streamlit-Konfiguration
-├── Features/                          # Kernfunktionalitäten
-│   ├── .env                           # Umgebungsvariablen
-│   ├── .streamlit/                    # Streamlit-Konfiguration
+├── .streamlit/                         # Streamlit-Konfiguration
+├── Features/                           # Kernfunktionalitäten
+│   ├── .env                            # Umgebungsvariablen
+│   ├── .streamlit/                     # Streamlit-Konfiguration
 │   ├── calendar_study.py               # Kalender-Integration
 │   ├── courses.py                      # Kursverwaltung
 │   ├── dashboard.py                    # Dashboard
@@ -58,7 +80,7 @@ CS-Project/
 │   ├── db.py                           # Datenbank-Initialisierung
 │   ├── google_calendar_sync.py         # Google Calendar-Sync
 │   ├── learning_suggestions.py         # KI-Lernempfehlungen
-│   ├── learning_tipps.py                # Lerntyp-Tipps
+│   ├── learning_tipps.py               # Lerntyp-Tipps
 │   ├── learning_type.py                # Lerntyp-Analyse
 │   ├── local_database.db               # Lokale SQLite-Datenbank
 │   ├── procrastination_data.csv        # Trainingsdaten ML
@@ -71,26 +93,7 @@ CS-Project/
 
 ---
 
-## ⚙️ Installation & Ausführung
-
-### Installation
-1. ZIP-Datei entpacken
-2. Ins Projektverzeichnis navigieren
-3. Abhängigkeiten installieren:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Starten der Anwendung
-```bash
-streamlit run main.py
-```
-Die Anwendung ist dann erreichbar unter:  
-[http://localhost:8501](http://localhost:8501)
-
----
-
-## 🧠 Prokrastinations-Risiko-Modell
+## Prokrastinations-Risiko-Modell
 
 ### Grundlage:
 Ein **Random Forest Classifier** analysiert folgende Merkmale:
@@ -113,25 +116,12 @@ Die vollständige Modellentwicklung ist im Jupyter Notebook dokumentiert:
 
 ---
 
-## ☁️ Hinweis zu Azure
+## Hinweis zu Azure
 
 Die Anwendung ist für **Azure SQL** vorbereitet, aktuell jedoch auf **SQLite** umgestellt. Die Reaktivierung von Azure ist jederzeit möglich, indem die **.env-Datei** entsprechend konfiguriert wird.
 
 ---
 
-## 🧑‍💻 Verwendete Technologien
-
-| Komponente        | Technologie                                    |
-|-------------------|------------------------------------------------|
-| **Frontend**      | Streamlit                                      |
-| **Backend**       | Python                                         |
-| **Datenbank**     | SQLite (lokal), Azure SQL (cloud)               |
-| **ML / KI**       | scikit-learn (Random Forest), OpenAI API (GPT)  |
-| **APIs**          | Google OAuth 2.0, Google Calendar, OpenAI API   |
-| **Visualisierung**| Matplotlib, Plotly                             |
-
----
-
-## 🔒 Datenschutzhinweis
+## Hinweis zu Datenschutz
 
 Die Anwendung speichert **Benutzerdaten lokal**. Bei Nutzung externer Dienste (z.B. Google Calendar oder OpenAI) werden **nur notwendige Daten übertragen**. API-Schlüssel und Zugangsdaten sind in der `.env`-Datei hinterlegt und **nicht im Code sichtbar**.

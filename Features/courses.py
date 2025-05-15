@@ -462,26 +462,26 @@ def display_hsg_api_page(user_id):
                         else:
                             st.info("Es wurden keine neuen Kurstermine zum Kalender hinzugefügt. Möglicherweise sind alle Termine bereits synchronisiert.")
 
-                    # jeden kurs als expander anzeigen
-                    for course_detail in user_selected_courses_details:
-                        expander_label = f"{course_detail['meeting_code']} - {course_detail['title']}"
-                        with st.expander(label=expander_label, expanded=False):
-                            # kursdetails anzeigen
-                            lang_name_display = local_lang_map.get(course_detail['language_id'], f"Sprache {course_detail['language_id']}")
-                            st.write(f"**Sprache:** {lang_name_display}")
-                            st.write(f"**Termin:** {course_detail['term_name']}")
-                            st.write(f"**Beschreibung:** {course_detail['description']}")
-                            if course_detail['link_course_info']:
-                                st.markdown(f"[Weitere Informationen]({course_detail['link_course_info']})")
-                            
-                            # kurstermine anzeigen
-                            course_schedule_entries = db_session.query(CourseSchedule).filter(CourseSchedule.course_id == course_detail['course_id']).all()
-                            if course_schedule_entries:
-                                st.write("**Zeitplan:**")
-                                for entry in course_schedule_entries:
-                                    st.write(f"- {entry.start_date} von {entry.start_time} bis {entry.end_time} in Raum {entry.room}")
-                            else:
-                                st.write("Kein Zeitplan für diesen Kurs hinterlegt.")
+                # jeden kurs als expander anzeigen
+                for course_detail in user_selected_courses_details:
+                    expander_label = f"{course_detail['meeting_code']} - {course_detail['title']}"
+                    with st.expander(label=expander_label, expanded=False):
+                        # kursdetails anzeigen
+                        lang_name_display = local_lang_map.get(course_detail['language_id'], f"Sprache {course_detail['language_id']}")
+                        st.write(f"**Sprache:** {lang_name_display}")
+                        st.write(f"**Termin:** {course_detail['term_name']}")
+                        st.write(f"**Beschreibung:** {course_detail['description']}")
+                        if course_detail['link_course_info']:
+                            st.markdown(f"[Weitere Informationen]({course_detail['link_course_info']})")
+                        
+                        # kurstermine anzeigen
+                        course_schedule_entries = db_session.query(CourseSchedule).filter(CourseSchedule.course_id == course_detail['course_id']).all()
+                        if course_schedule_entries:
+                            st.write("**Zeitplan:**")
+                            for entry in course_schedule_entries:
+                                st.write(f"- {entry.start_date} von {entry.start_time} bis {entry.end_time} in Raum {entry.room}")
+                        else:
+                            st.write("Kein Zeitplan für diesen Kurs hinterlegt.")
     except Exception as e:
         # fehlerbehandlung
         st.error(f"Ein Fehler ist aufgetreten: {e}")

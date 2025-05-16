@@ -16,3 +16,4 @@ openai
 pymupdf
 plotly
 joblib
+scikit-learn
